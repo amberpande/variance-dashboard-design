@@ -9,24 +9,16 @@ language.
 
 | Path | What it is |
 |---|---|
-| [`.claude/skills/variance-dashboard-design/`](.claude/skills/variance-dashboard-design/) | The skill. Drop this folder into any React repo and Claude Code will apply the system. |
+| [`.claude/skills/variance-dashboard-design/`](.claude/skills/variance-dashboard-design/) | The Claude Code skill, and the reference docs both assistants read. |
+| [`.github/`](.github/) | The GitHub Copilot equivalent — instruction and prompt files. |
 | [`prototype/exception-variance-dashboard.html`](prototype/exception-variance-dashboard.html) | A working, self-contained prototype. Open it in a browser — no build step. |
 
-## Using the skill
+The reference docs under `.claude/skills/.../references/` are the single source
+of truth. The Copilot files link to them rather than duplicating, so the rules
+can't drift apart — **copy both directories** into the target app.
 
-Copy the skill folder into the target React repo:
+## The reference docs
 
-```
-<your-react-app>/.claude/skills/variance-dashboard-design/
-```
-
-Then ask Claude Code to apply it — the skill triggers on requests like
-"restyle this metrics dashboard", "make this dashboard less boring", or
-"add a reason panel to these metric cards".
-
-The skill contains:
-
-- **`SKILL.md`** — when it applies, and the porting procedure
 - **`references/tokens.css`** — the complete token set, drop-in, correct in
   light, dark, and the default "system" theme state
 - **`references/components.md`** — React + TypeScript source for every
@@ -36,6 +28,37 @@ The skill contains:
 
 All tokens are prefixed `--vd-` so they can't collide with the host app's own
 variables.
+
+## Using it with Claude Code
+
+Copy the skill folder into the target React repo:
+
+```
+<your-react-app>/.claude/skills/variance-dashboard-design/
+```
+
+Then ask Claude Code to apply it — the skill triggers on requests like
+"restyle this metrics dashboard", "make this dashboard less boring", or
+"add a reason panel to these metric cards". You can also invoke it directly
+with `/variance-dashboard-design`.
+
+## Using it with GitHub Copilot
+
+Copy `.github/` into the target React repo alongside `.claude/`. It provides:
+
+| File | What it does |
+|---|---|
+| `.github/prompts/variance-dashboard-design.prompt.md` | Type `/variance-dashboard-design` in Copilot Chat to apply the system. |
+| `.github/prompts/variance-dashboard-review.prompt.md` | Type `/variance-dashboard-review` to audit existing dashboard code against the anti-pattern checklist. |
+| `.github/instructions/variance-dashboard-design.instructions.md` | Always-on rules, auto-applied to files matching its `applyTo` glob. |
+
+**Narrow the `applyTo` glob** in the instructions file to the paths where your
+dashboard code actually lives. Copilot loads instruction files in full for
+every matching request — unlike a Claude skill it has no progressive
+disclosure, so scoping it tightly matters.
+
+Prompt files are a VS Code Copilot Chat feature; enable
+`chat.promptFiles` if the slash commands don't appear.
 
 ## The prototype
 

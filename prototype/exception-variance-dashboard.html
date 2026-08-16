@@ -200,6 +200,15 @@
     background-position: right 14px center, right 9px center;
     background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
   }
+  select.control:hover { border-color: var(--hairline-2); }
+  button.link-btn {
+    appearance: none; background: var(--surface); color: var(--ink-2);
+    border: 1px solid var(--hairline); border-radius: 7px;
+    font-family: var(--sans); font-size: 12.5px; font-weight: 520;
+    padding: 7px 12px; cursor: pointer; background-image: none;
+  }
+  button.link-btn:hover { border-color: var(--hairline-2); color: var(--ink); }
+  button.link-btn[data-copied="true"] { color: var(--accent); border-color: var(--accent-ring); }
 
   /* ---------- briefing ---------- */
   .briefing {
@@ -448,14 +457,49 @@
     border: 1px solid var(--hairline); border-radius: 7px; overflow-x: auto;
     font-family: var(--mono); font-size: 11px; line-height: 1.62; color: var(--ink-2); tab-size: 2;
   }
-  .feedback { display: flex; gap: 8px; align-items: center; }
-  .feedback button {
+  /* the action row — an explanation the reader can't act on is a dead end */
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .actions-spacer { flex: 1 1 auto; min-width: 0; }
+  .feedback { display: inline-flex; gap: 8px; align-items: center; flex: none; }
+  .actions button {
     appearance: none; background: var(--surface); border: 1px solid var(--hairline);
     border-radius: 6px; font-family: var(--sans); font-size: 11.5px; font-weight: 520;
-    color: var(--ink-2); padding: 4px 10px; cursor: pointer;
+    color: var(--ink-2); padding: 4px 10px; cursor: pointer; white-space: nowrap;
   }
-  .feedback button:hover { border-color: var(--hairline-2); color: var(--ink); }
-  .feedback button[aria-pressed="true"] { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-wash); }
+  .actions button:hover { border-color: var(--hairline-2); color: var(--ink); }
+  .actions button[aria-pressed="true"] {
+    border-color: var(--accent-ring); color: var(--accent); background: var(--accent-wash);
+  }
+  .ticket {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    border: 1px solid var(--accent-ring); background: var(--accent-wash);
+    border-radius: 6px; padding: 4px 10px; white-space: nowrap;
+  }
+
+  .followup { display: flex; gap: 8px; }
+  .followup input {
+    flex: 1 1 auto; min-width: 0;
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 6px; padding: 6px 10px;
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink);
+  }
+  .followup input::placeholder { color: var(--ink-3); }
+  .followup input:focus { border-color: var(--accent-ring); outline: none; }
+  .followup button {
+    appearance: none; background: var(--accent); border: 0; border-radius: 6px;
+    color: #fff; font-family: var(--sans); font-size: 11.5px; font-weight: 600;
+    padding: 4px 14px; cursor: pointer;
+  }
+  .followup-echo {
+    font-family: var(--mono); font-size: 10.5px; line-height: 1.5;
+    color: var(--ink-3); padding: 2px 0 0;
+  }
+
+  .expected-note {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; font-weight: 600; color: var(--ink-3);
+    border: 1px solid var(--hairline); border-radius: 4px; padding: 2px 6px;
+  }
 
   .collapse {
     appearance: none; background: transparent; border: 1px solid var(--hairline);
@@ -469,7 +513,13 @@
     font-size: 12.5px; line-height: 1.6; color: var(--ink-3); max-width: 74ch;
   }
   footer.note b { color: var(--ink-2); font-weight: 600; }
+  footer.note i { font-style: normal; color: var(--ink-2); font-weight: 560; }
   footer.note p { margin: 0 0 8px; }
+  footer.note kbd {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+    border: 1px solid var(--hairline); border-radius: 4px;
+    padding: 1px 5px; background: var(--surface);
+  }
 </style>
 
 <div class="shell">
@@ -506,6 +556,8 @@
       <option value="count">by volume</option>
       <option value="name">alphabetical</option>
     </select>
+    <button type="button" class="control link-btn" id="copy-link"
+            title="Copies a URL carrying the dates, ordering and open card">Copy link</button>
   </div>
 
   <section class="briefing" aria-label="Summary">
@@ -543,6 +595,11 @@
     the two selected dates sits outside its own normal day-to-day movement — so the order
     changes with the dates, and whatever actually broke is always first. The top three are
     explained before you ask; the rest explain on click.</p>
+    <p><b>Try:</b> expand a card and use the action row — <i>Create ticket</i> raises one
+    against that variance, <i>Mark as expected</i> downgrades a known recurring cycle
+    without hiding it (try it on Access review). Ask a follow-up under any explanation.
+    <i>Copy link</i> carries the dates, ordering and open card. <kbd>J</kbd> and
+    <kbd>K</kbd> move between cards, <kbd>Enter</kbd> expands, <kbd>Esc</kbd> collapses.</p>
     <p>Exception counts, teams and reason codes are illustrative.</p>
   </footer>
 
@@ -587,6 +644,7 @@
         { name: "Price tolerance exceeded", a: 38, b: 44 },
         { name: "Tax code missing",         a: 20, b: 27 }
       ],
+      headline: "\"Vendor ID not found\" accounts for 115 of the 145 new exceptions — all from the 12 August vendor migration.",
       reason: "Invoice matching exceptions more than doubled, from 118 to 263. One reason code accounts for 115 of the 145 additional exceptions: \"Vendor ID not found\" went from 6 to 121. All 121 reference vendor records migrated in the master-data cutover on 12 August — those records were created with new internal IDs, but the open invoices still carry the legacy IDs, so the match fails on lookup rather than on amount. The other three reason codes moved within their normal range. 94% of the affected invoices sit with two suppliers.",
       scope: "Grain: exception · Dimensions checked: reason code, vendor, entity, raising team · Confidence: high — one reason code explains 79% of the variance.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'INVOICE_MATCHING'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1\nORDER BY (count_b - count_a) DESC;"
@@ -603,6 +661,7 @@
         { name: "FX rounding difference",   a: 22, b: 24 },
         { name: "Duplicate payment flag",   a: 15, b: 16 }
       ],
+      headline: "Downstream of the invoice failure, not a Treasury problem — 47 of the 55 new breaks reference an unmatched invoice.",
       reason: "Payment reconciliation breaks rose from 86 to 141. This is downstream of the invoice matching failure rather than a separate problem: 47 of the 55 additional breaks are \"Unmatched vendor payment\", and each one references an invoice that is itself sitting unmatched from the 12 August vendor migration. Payments went out against the legacy vendor records and cannot be tied back. Clearing the invoice exceptions should clear most of these without any action in Treasury.",
       scope: "Grain: exception · Dimensions checked: reason code, bank account, currency · Confidence: high — 47 of 55 linked to an open invoice exception by invoice ID.",
       sql: "SELECT\n  e.exception_reason_code,\n  COUNT_IF(e.raised_date = :date_a) AS count_a,\n  COUNT_IF(e.raised_date = :date_b) AS count_b,\n  COUNT_IF(i.exception_id IS NOT NULL) AS linked_to_invoice_exc\nFROM ops_controls.marts.fct_exceptions e\nLEFT JOIN ops_controls.marts.fct_exceptions i\n  ON i.source_invoice_id = e.source_invoice_id\n AND i.process_name = 'INVOICE_MATCHING'\nWHERE e.process_name = 'PAYMENT_RECON'\n  AND e.raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
@@ -619,6 +678,7 @@
         { name: "Segregation-of-duty conflict", a: 14, b: 13 },
         { name: "Privileged access unapproved", a: 6, b: 6 }
       ],
+      headline: "Unrelated to the invoice issue — the quarterly recertification opened on 14 August and 43 of 45 are simply not actioned yet.",
       reason: "Access review exceptions rose from 47 to 92, and this one is unrelated to the invoice and payment movements. The quarterly access recertification cycle opened on 14 August, and 43 of the 45 additional exceptions are \"Recert not actioned\" — line managers who have been issued a review but have not completed it yet. The same pattern appeared in the previous three quarterly cycles and cleared within nine days each time. The genuinely risk-bearing codes, orphaned accounts and SoD conflicts, are flat.",
       scope: "Grain: exception · Dimensions checked: reason code, application, manager, cycle ID · Confidence: high — matched against the three prior recertification cycles.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'ACCESS_REVIEW'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1\nORDER BY 3 DESC;"
@@ -635,6 +695,7 @@
         { name: "Sanctions hit review",    a: 31, b: 33 },
         { name: "Beneficial owner missing", a: 27, b: 23 }
       ],
+      headline: "The weekly renewal-reminder job, live since 11 August, cut expired-document exceptions by a third.",
       reason: "KYC exceptions fell from 204 to 168 — the only process that improved over this window. The whole reduction is in \"Document expired\", down from 92 to 61, after the automated renewal-reminder job was switched from monthly to weekly on 11 August. Customers are now re-submitting before the document lapses rather than after. Sanctions hit review is slightly up but well inside its normal range, and no exception in that code has been open longer than two days.",
       scope: "Grain: exception · Dimensions checked: reason code, jurisdiction, customer segment · Confidence: high.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'KYC_VERIFICATION'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
@@ -651,6 +712,7 @@
         { name: "Quantity break",             a: 13, b: 13 },
         { name: "Standing instruction missing", a: 8, b: 8 }
       ],
+      headline: "Tracks settlement volume, which was 9% higher — break rate per thousand trades is unchanged.",
       reason: "Trade settlement breaks moved from 63 to 71, which is inside the normal day-to-day range for this process. The increase sits in counterparty mismatch and settlement date breaks, both of which track settlement volume — and volume was 9% higher on the later date. Break rate per thousand settled trades is effectively unchanged at 2.1. Nothing here needs attention.",
       scope: "Grain: exception · Dimensions checked: reason code, counterparty, asset class · Confidence: high — normalised by settlement volume.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'TRADE_SETTLEMENT'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
@@ -667,6 +729,7 @@
         { name: "Duplicate vendor record", a: 5, b: 4 },
         { name: "Sanctions screening open", a: 3, b: 3 }
       ],
+      headline: "Within normal movement — bank-detail verification accounts for most of the small reduction.",
       reason: "Vendor onboarding exceptions fell slightly, from 29 to 24, which is within normal movement for a process at this volume. Bank detail verification accounts for most of the reduction. Worth noting alongside the invoice matching problem: the duplicate vendor record code did not rise after the 12 August migration, so the migration created new IDs for existing vendors rather than duplicate records — consistent with the lookup-failure explanation on invoice matching.",
       scope: "Grain: exception · Dimensions checked: reason code, vendor country, requester · Confidence: high.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'VENDOR_ONBOARDING'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
@@ -683,6 +746,7 @@
         { name: "Schema drift",             a: 47,  b: 51 },
         { name: "Duplicate record",         a: 36,  b: 37 }
       ],
+      headline: "All four reason codes moved proportionally — the signature of volume growth, not a defect.",
       reason: "Data quality failures are flat at 328 against 312, well inside normal movement for the highest-volume control in the estate. All four reason codes moved proportionally, which is the signature of ordinary volume growth rather than a specific defect — total rows checked rose 4% over the same window. No single source table contributes more than 8% of the failures.",
       scope: "Grain: check failure · Dimensions checked: reason code, source table, pipeline · Confidence: high — normalised by rows checked.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'DATA_QUALITY'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
@@ -699,6 +763,7 @@
         { name: "Cost centre invalid",  a: 22, b: 21 },
         { name: "Late submission",      a: 15, b: 15 }
       ],
+      headline: "Both dates are Mondays, so the weekly approval cycle affects them equally.",
       reason: "Timesheet approval exceptions are effectively unchanged, 149 against 156. Both dates are Mondays, so the usual weekly approval cycle affects them equally — comparing a Monday to a mid-week day would show a much larger swing that means nothing. Missing approval remains the dominant code and is concentrated in the same four cost centres as the previous six weeks.",
       scope: "Grain: exception · Dimensions checked: reason code, cost centre, approver · Confidence: high — like-for-like weekday comparison.",
       sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'TIMESHEET_APPROVAL'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
@@ -707,7 +772,40 @@
 
   var CANON_A = "2026-08-10", CANON_B = "2026-08-17";
 
-  var state = { a: CANON_A, b: CANON_B, sort: "impact", open: null, table: {} };
+  var state = {
+    a: CANON_A, b: CANON_B, sort: "impact", open: null,
+    table: {},
+    expected: {},   /* processes the reader has marked as a known recurring cycle */
+    tickets: {}     /* processes with a ticket raised against this variance      */
+  };
+
+  /* ---------- shareable state ----------------------------------------------
+     "Look at this" is the most common thing a reader does with a finding.
+     Without state in the URL their only option is a screenshot.              */
+  function readUrl() {
+    try {
+      var q = new URLSearchParams(window.location.search);
+      if (q.get("a")) state.a = q.get("a");
+      if (q.get("b")) state.b = q.get("b");
+      if (q.get("sort")) state.sort = q.get("sort");
+      if (q.get("open")) state.open = q.get("open");
+      if (q.get("expected")) {
+        q.get("expected").split(",").forEach(function (id) { if (id) state.expected[id] = true; });
+      }
+    } catch (e) { /* sandboxed frame — fall back to defaults */ }
+  }
+  function shareUrl() {
+    var q = "?a=" + state.a + "&b=" + state.b + "&sort=" + state.sort +
+            (state.open ? "&open=" + state.open : "") +
+            (Object.keys(state.expected).length ? "&expected=" + Object.keys(state.expected).join(",") : "");
+    try { return window.location.origin + window.location.pathname + q; }
+    catch (e) { return q; }
+  }
+  function writeUrl() {
+    try { window.history.replaceState(null, "", shareUrl()); }
+    catch (e) { /* replaceState can throw in a sandboxed frame; the Copy link
+                   button still exposes the same state */ }
+  }
 
   function isCanonical() { return state.a === CANON_A && state.b === CANON_B; }
 
@@ -1244,7 +1342,80 @@
     sql.addEventListener("click", function (e) { e.stopPropagation(); });
     panel.appendChild(sql);
 
-    var fb = document.createElement("div");
+    /* The reader's next question is already forming. The semantic model is
+       already here, so taking the follow-up costs almost nothing. */
+    var form = document.createElement("form");
+    form.className = "followup";
+    var input = document.createElement("input");
+    input.type = "text";
+    input.name = "q";
+    input.placeholder = "Ask a follow-up — e.g. which two suppliers?";
+    input.setAttribute("aria-label", "Ask a follow-up question");
+    form.appendChild(input);
+    var ask = document.createElement("button");
+    ask.type = "submit";
+    ask.textContent = "Ask";
+    form.appendChild(ask);
+    form.addEventListener("click", function (e) { e.stopPropagation(); });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!input.value.trim()) return;
+      var echo = document.createElement("div");
+      echo.className = "followup-echo";
+      echo.textContent = "“" + input.value.trim() + "” — in the real build this goes back to Cortex Analyst with the same scope.";
+      form.parentNode.insertBefore(echo, form.nextSibling);
+      input.value = "";
+    });
+    panel.appendChild(form);
+
+    /* The action row — where the explanation stops being a report. Without
+       it the reader retypes the finding into a ticket by hand. */
+    var actions = document.createElement("div");
+    actions.className = "actions";
+
+    var ticket = state.tickets[m.id];
+    if (ticket) {
+      var tk = document.createElement("span");
+      tk.className = "ticket";
+      tk.textContent = ticket + " · Open";
+      actions.appendChild(tk);
+    } else {
+      var mk = document.createElement("button");
+      mk.type = "button";
+      mk.textContent = "Create ticket";
+      mk.addEventListener("click", function (e) {
+        e.stopPropagation();
+        state.tickets[m.id] = "OPS-" + (4100 + Math.floor(Math.random() * 90));
+        render();
+      });
+      actions.appendChild(mk);
+    }
+
+    var asgn = document.createElement("button");
+    asgn.type = "button";
+    asgn.textContent = "Assign to " + m.team;
+    asgn.addEventListener("click", function (e) { e.stopPropagation(); });
+    actions.appendChild(asgn);
+
+    var expBtn = document.createElement("button");
+    expBtn.type = "button";
+    expBtn.textContent = state.expected[m.id] ? "Unmark expected" : "Mark as expected";
+    expBtn.title = "A known recurring cycle stays visible and still ranks — it just stops being flagged.";
+    expBtn.setAttribute("aria-pressed", state.expected[m.id] ? "true" : "false");
+    expBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (state.expected[m.id]) delete state.expected[m.id];
+      else state.expected[m.id] = true;
+      render();
+    });
+    actions.appendChild(expBtn);
+
+    var spacer = document.createElement("span");
+    spacer.className = "actions-spacer";
+    actions.appendChild(spacer);
+
+    /* keep the label and its buttons in one group so they wrap together */
+    var fb = document.createElement("span");
     fb.className = "feedback";
     var lab = document.createElement("span");
     lab.className = "eyebrow";
@@ -1258,12 +1429,15 @@
       b.addEventListener("click", function (e) {
         e.stopPropagation();
         var on = b.getAttribute("aria-pressed") === "true";
-        Array.prototype.forEach.call(fb.querySelectorAll("button"), function (x) { x.setAttribute("aria-pressed", "false"); });
+        Array.prototype.forEach.call(fb.querySelectorAll("button"), function (x) {
+          x.setAttribute("aria-pressed", "false");
+        });
         b.setAttribute("aria-pressed", on ? "false" : "true");
       });
       fb.appendChild(b);
     });
-    panel.appendChild(fb);
+    actions.appendChild(fb);
+    panel.appendChild(actions);
 
     return panel;
   }
@@ -1331,7 +1505,9 @@
 
     rows.forEach(function (row, idx) {
       var m = row.m, p = row.p;
-      var sev = severity(p.z, p.b > p.a);
+      /* A variance marked as a known recurring cycle is DOWNGRADED, never
+         hidden — hiding it would make the dashboard lie. */
+      var sev = state.expected[m.id] ? "steady" : severity(p.z, p.b > p.a);
       var isOpen = state.open === m.id;
 
       var card = document.createElement("div");
@@ -1362,9 +1538,14 @@
       top.appendChild(names);
       var rank = document.createElement("span");
       rank.className = "rank";
+      /* Plain language, not statistical notation — this is read by ops and
+         finance people. The precise figure lives in the tooltip. */
+      var normalTxt = p.z >= 1 ? p.z.toFixed(1) + "× normal" : "normal";
       rank.textContent = state.sort === "impact"
-        ? String(idx + 1).padStart(2, "0") + " · z " + p.z.toFixed(1)
-        : "z " + p.z.toFixed(1);
+        ? String(idx + 1).padStart(2, "0") + " · " + normalTxt
+        : normalTxt;
+      rank.title = "z-score " + p.z.toFixed(2) +
+        " — how far this change sits outside this process's normal day-to-day movement";
       top.appendChild(rank);
       card.appendChild(top);
 
@@ -1388,6 +1569,13 @@
       w.textContent = SEV_WORD[sev];
       chip.appendChild(w);
       meta.appendChild(chip);
+      if (state.expected[m.id]) {
+        var exp = document.createElement("span");
+        exp.className = "expected-note";
+        exp.textContent = "expected — recurring cycle";
+        exp.title = "Marked as a known recurring variance. Still shown and still ranked, but not flagged.";
+        meta.appendChild(exp);
+      }
       card.appendChild(meta);
 
       if (!isOpen) {
@@ -1401,7 +1589,9 @@
           tag.textContent = "Why";
           pv.appendChild(tag);
           var pt = document.createElement("span");
-          pt.textContent = m.reason.split(". ")[0] + ".";
+          /* the model returns a short headline alongside the full explanation —
+             truncating the explanation would just restate the number above */
+          pt.textContent = m.headline;
           pv.appendChild(pt);
           card.appendChild(pv);
         } else {
@@ -1463,6 +1653,8 @@
       grid.appendChild(card);
       if (isOpen) card.focus({ preventScroll: true });
     });
+
+    writeUrl();
   }
 
   /* ---------- controls ---------- */
@@ -1525,6 +1717,41 @@
     render();
   });
 
+  var copyBtn = document.getElementById("copy-link");
+  copyBtn.addEventListener("click", function () {
+    var url = shareUrl();
+    var done = function () {
+      copyBtn.textContent = "Copied";
+      copyBtn.setAttribute("data-copied", "true");
+      setTimeout(function () {
+        copyBtn.textContent = "Copy link";
+        copyBtn.removeAttribute("data-copied");
+      }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, done);
+    } else { done(); }
+  });
+
+  /* Keyboard navigation — this is a tool people open every morning. */
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "select" || tag === "textarea") return;
+    if (e.key !== "j" && e.key !== "k") return;
+    var cards = Array.prototype.slice.call(grid.querySelectorAll('.card[role="button"]'));
+    if (!cards.length) return;
+    var i = cards.indexOf(document.activeElement);
+    var next = e.key === "j"
+      ? (i < 0 ? 0 : Math.min(cards.length - 1, i + 1))
+      : (i < 0 ? cards.length - 1 : Math.max(0, i - 1));
+    cards[next].focus();
+    e.preventDefault();
+  });
+
+  readUrl();
+  inputA.value = state.a;
+  inputB.value = state.b;
+  document.getElementById("sort-select").value = state.sort;
   syncPresets();
   render();
 })();

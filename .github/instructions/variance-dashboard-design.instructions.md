@@ -63,9 +63,33 @@ Component source:
 - The hero figure uses the same sans as everything else. No display or serif
   face.
 
+## Language and workflow
+
+- **No statistical notation on the face of a card.** Show "4× normal", not
+  `z 4.3`; keep the precise figure in a tooltip. This is read by ops and
+  finance people, not analysts — a ranking they can't explain at a glance
+  reads as arbitrary.
+- **A card preview comes from a `headline` field the model returns**, never
+  from truncating the explanation. The first sentence usually just restates the
+  number already on the card.
+- **The reason panel ends in an action** — assign, create ticket, link ticket.
+  An explanation the reader can't act on is a dead end.
+- **Recurring expected variances can be marked as such.** They still appear and
+  still rank, but render as normal with a note saying why. Never hide them —
+  hiding makes the dashboard lie.
+- **Take a follow-up question** under the explanation, and let every number
+  drill through to the underlying rows.
+
 ## Interaction and accessibility
 
 - One filter row above everything it scopes. Never per-card filters.
+- Encode the date pair, sort, and expanded card in the **URL** so findings are
+  shareable. Without it, readers share by screenshot.
+- Default to the reader's own team's metrics, with "show all" one click away.
+- Keyboard navigation for daily users: `J`/`K` between cards, `Enter` to
+  expand, `Escape` to collapse.
+- Show data freshness, and mark a ranking provisional when its sigma rests on
+  fewer than ~30 days of history.
 - Refetch holds the previous render at reduced opacity — no skeleton flash, no
   layout jump.
 - A collapsed card is `role="button"`; an expanded one is `role="region"`. An

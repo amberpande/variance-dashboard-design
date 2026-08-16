@@ -118,6 +118,87 @@ thing on the page and must not look like every other button.
   you will ever get.
 - **Design the failure.** "Cortex couldn't answer that" needs a real state, not
   a stack trace. Say what it can answer about.
+- **Return a headline field; never truncate prose.** The card preview needs one
+  line. Taking the first sentence of the full explanation gives you "Invoice
+  matching exceptions more than doubled" — which just restates the number
+  already on the card. Have the model return a separate short `headline`
+  alongside the full `explanation`, and put the headline on the card.
+- **Take the follow-up.** The panel answers one question and then stops, but
+  the reader's next question is already forming: *"which two suppliers?"*,
+  *"show me the 121 invoices"*. A follow-up input under the explanation costs
+  little — the semantic model is already there — and it is the difference
+  between a report and a conversation.
+- **Drill to the records.** Every number should reach the underlying rows. An
+  explanation the reader cannot verify against the actual exceptions is asking
+  for trust it hasn't earned.
+
+---
+
+## Speak the reader's language
+
+This class of dashboard is read by ops, finance and compliance people, not by
+analysts. Statistical notation on the card is honest and unhelpful.
+
+Show **"4× normal"**, not `z 4.3`. Keep the precise figure in a tooltip for
+whoever wants it. The same applies to sigma, p-values, confidence intervals and
+percentile ranks — the ranking must be *explainable at a glance* by someone who
+has never taken a statistics course, or it reads as arbitrary and the ordering
+loses its authority.
+
+Name things as the reader recognises them. A person manages *exceptions* and
+*processes*, not `fct_exception_records` and `process_dim_key`.
+
+---
+
+## Close the loop
+
+An explanation the reader cannot act on is a dead end. They read "the vendor
+migration broke invoice matching", and then open a ticketing tool and retype it
+by hand.
+
+The reason panel should terminate in an action row:
+
+- **Assign** to the owning team
+- **Create a ticket**, pre-filled with the explanation, the affected count, and
+  the query
+- **Link an existing ticket** — and once linked, the card shows that ticket's
+  status instead of re-asking tomorrow
+
+This is usually the highest-value addition to a working explanation dashboard,
+and it is almost always the last thing anyone builds.
+
+---
+
+## Earn continued trust
+
+Recurring, expected variances are the fastest way to train users to ignore your
+severity colors. A quarterly access recertification spikes every quarter; by
+the third quarter a red CRITICAL card for a known cycle is actively harmful.
+
+Give the reader **"Mark as expected — recurring"**. The variance still appears
+and still ranks, but it renders as normal with a note saying why it was
+suppressed and who suppressed it. Feed those marks back so the system learns
+which spikes are business-as-usual.
+
+Two more things that keep trust:
+
+- **Show freshness.** When the data last loaded, always visible.
+- **Flag thin evidence.** If a metric's sigma is computed from fewer than ~30
+  days of history, mark its ranking provisional. A confident number built on
+  thin evidence is worse than an honest hedge.
+
+---
+
+## The best session is often the one that didn't happen
+
+For a dashboard people open daily, the strongest UX outcome most mornings is
+that they don't need to. Push the briefing headline and top three movers as a
+morning digest — email, Teams, Slack — each deep-linking into the expanded
+card. On quiet days they read four lines and move on; the dashboard is for the
+days something is actually wrong.
+
+This is a product decision, not a styling one, but it follows directly from
+"lead with the answer" and belongs in the same conversation.
 
 ---
 
@@ -147,6 +228,16 @@ or `[data-theme]` block. That is the classic unreadable-dashboard bug.
   card re-renders against the same slice so the numbers always agree.
 - **Refetch holds the frame.** Previous render at reduced opacity — no skeleton
   flash, no layout jump.
+- **Put the state in the URL** — the date pair, the sort, the expanded card.
+  "Look at this" is the single most common thing a reader does with a finding,
+  and without shareable URLs their only option is a screenshot. Cheap to build,
+  disproportionate payoff.
+- **Default to the reader's own scope.** Someone in Treasury does not care
+  about HR Ops timesheets. Default to their team's metrics with "show all" one
+  click away, and persist the choice.
+- **Keyboard navigation for daily users.** `J`/`K` between cards, `Enter` to
+  expand, `Escape` to collapse. For a tool someone opens every morning this
+  compounds fast.
 - **Expand in place**, full row, rather than routing to a detail page. Context
   is what makes a variance readable.
 - **The collapsed card is a button; the expanded card is a region.** An open
@@ -214,3 +305,22 @@ heading, or use px. Silently halves your line length otherwise.
 **❌ Per-card filters.** → One row above everything it scopes.
 
 **❌ A tooltip as the only way to read a value.** → Table view twin.
+
+**❌ Statistical notation on the face of a card** — `z 4.3`, `σ`, `p < 0.05`.
+→ "4× normal", with the precise figure on hover.
+
+**❌ A card preview built by truncating the explanation.** The first sentence
+usually restates the number already on the card. → A separate `headline` field
+from the model.
+
+**❌ An explanation with no action.** The reader has to retype the finding into
+a ticket by hand. → Assign / create ticket / link ticket in the reason panel.
+
+**❌ A known recurring spike flagged CRITICAL every cycle.** Trains readers to
+ignore the color. → "Mark as expected — recurring".
+
+**❌ State that lives only in component memory.** No shareable URL, so readers
+screenshot findings. → Encode the date pair, sort, and expanded card in the URL.
+
+**❌ A ranking presented with equal confidence regardless of history depth.**
+→ Mark it provisional when sigma rests on a thin window.

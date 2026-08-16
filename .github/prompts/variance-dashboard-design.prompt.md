@@ -74,6 +74,13 @@ Load-bearing. Full reasoning is in the rules file.
 - **Pre-fetch reasons for the top three movers**; the rest explain on click.
 - **Hold the frame on refetch** — previous render at reduced opacity, never a
   skeleton flash.
+- **No statistical notation on the card.** "4× normal", not `z 4.3`.
+- **Close the loop** — the reason panel ends in assign / create ticket / link
+  ticket. An explanation the reader can't act on is a dead end.
+- **Let recurring variances be marked expected**, downgraded rather than
+  hidden, or the severity colors stop being believed.
+- **Put the date pair, sort, and expanded card in the URL** so findings are
+  shareable without a screenshot.
 
 ## Output
 

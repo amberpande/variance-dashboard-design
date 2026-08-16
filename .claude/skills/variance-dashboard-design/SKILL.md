@@ -74,6 +74,14 @@ the short form.
   three; the rest explain on click.
 - **Hold the frame on refetch.** Previous render at reduced opacity — never a
   skeleton flash, never a layout jump.
+- **No statistical notation on the card.** "4× normal", not `z 4.3`. This is
+  read by ops and finance people, not analysts.
+- **Close the loop.** An explanation the reader can't act on is a dead end —
+  the reason panel ends in assign / create ticket / link ticket.
+- **Let recurring variances be marked expected**, or your severity colors stop
+  being believed by the third quarter.
+- **Put the date pair, sort, and expanded card in the URL.** Otherwise readers
+  share findings by screenshot.
 
 ## Files
 

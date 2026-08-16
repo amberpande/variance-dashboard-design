@@ -60,6 +60,22 @@ for a reader, and the fix.
 - Motion that ignores `prefers-reduced-motion`
 - No visible keyboard focus state
 
+**Language and workflow**
+
+- Statistical notation on the face of a card (`z 4.3`, `σ`, `p < 0.05`) instead
+  of plain language
+- A card preview produced by truncating the explanation rather than a
+  `headline` field returned by the model
+- A reason panel with no action — nothing to assign, ticket, or link
+- No way to mark a recurring expected variance, so known cycles are flagged
+  critical every time
+- A "mark as expected" that *hides* the variance instead of downgrading it
+- Schema names surfaced to the reader (`fct_exception_records`) instead of the
+  words they use
+- No follow-up input, and no path from a number to the underlying rows
+- No data-freshness indicator; rankings presented with equal confidence
+  regardless of how much history the sigma rests on
+
 **Layout**
 
 - `max-width` in `ch` on a heading whose font-size differs from its parent's —

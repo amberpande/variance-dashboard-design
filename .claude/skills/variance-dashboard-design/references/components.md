@@ -333,7 +333,10 @@ type MetricCardProps = {
   label: string; owner?: string;
   a: number; b: number; labelA: string; labelB: string;
   z: number; severity: Severity; rank?: number;
-  reasonPreview?: string;          // pre-fetched, for the top movers only
+  /* A short headline RETURNED BY THE MODEL, not the explanation truncated —
+     the first sentence of an explanation usually just restates the number
+     already on the card. Pre-fetched for the top movers only. */
+  reasonHeadline?: string;
   expanded?: boolean;
   onExpand: () => void;
   children?: React.ReactNode;      // the detail panel, when expanded
@@ -363,8 +366,11 @@ export function MetricCard(p: MetricCardProps) {
           <div className="vd-card__name">{p.label}</div>
           {p.owner && <div className="vd-card__owner">{p.owner}</div>}
         </div>
-        <span className="vd-card__rank">
-          {p.rank != null && `${String(p.rank).padStart(2, "0")} · `}z {p.z.toFixed(1)}
+        {/* Plain language, not statistical notation — this is read by ops and
+            finance people. Precise figure goes in the tooltip. */}
+        <span className="vd-card__rank" title={`z-score ${p.z.toFixed(2)} — deviations from this metric's normal movement`}>
+          {p.rank != null && `${String(p.rank).padStart(2, "0")} · `}
+          {p.z >= 1 ? `${p.z.toFixed(1)}× normal` : "normal"}
         </span>
       </div>
 
@@ -378,10 +384,10 @@ export function MetricCard(p: MetricCardProps) {
       {!p.expanded && (
         <>
           <Dumbbell a={p.a} b={p.b} labelA={p.labelA} labelB={p.labelB} />
-          {p.reasonPreview ? (
+          {p.reasonHeadline ? (
             <div className="vd-card__preview">
               <span className="vd-card__tag">Why</span>
-              <span>{p.reasonPreview}</span>
+              <span>{p.reasonHeadline}</span>
             </div>
           ) : (
             <div className="vd-card__cta">Explain the variance →</div>
@@ -565,9 +571,20 @@ type ReasonPanelProps = {
   sql?: string;
   latencyLabel?: string; // e.g. "2.1s"
   onFeedback?: (useful: boolean) => void;
+  /* Closing the loop. An explanation the reader can't act on is a dead end —
+     without these they retype the finding into a ticket by hand. */
+  ticket?: { id: string; url: string; status: string };
+  onCreateTicket?: () => void;
+  onMarkExpected?: () => void;
+  /* The reader's next question is already forming. The semantic model is
+     already here; taking the follow-up costs little. */
+  onFollowUp?: (question: string) => void;
 };
 
-export function ReasonPanel({ text, scope, sql, latencyLabel, onFeedback }: ReasonPanelProps) {
+export function ReasonPanel({
+  text, scope, sql, latencyLabel, onFeedback,
+  ticket, onCreateTicket, onMarkExpected, onFollowUp,
+}: ReasonPanelProps) {
   const { shown, done } = useStreamedText(text);
   const [vote, setVote] = useState<boolean | null>(null);
 
@@ -594,7 +611,41 @@ export function ReasonPanel({ text, scope, sql, latencyLabel, onFeedback }: Reas
         </details>
       )}
 
-      <div className="vd-feedback">
+      {onFollowUp && (
+        <form
+          className="vd-followup"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const input = e.currentTarget.elements.namedItem("q") as HTMLInputElement;
+            if (input.value.trim()) { onFollowUp(input.value.trim()); input.value = ""; }
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input name="q" type="text" placeholder="Ask a follow-up…" aria-label="Ask a follow-up question" />
+          <button type="submit">Ask</button>
+        </form>
+      )}
+
+      {/* The action row — where the explanation stops being a report */}
+      <div className="vd-actions">
+        {ticket ? (
+          <a className="vd-actions__ticket" href={ticket.url} target="_blank" rel="noreferrer"
+             onClick={(e) => e.stopPropagation()}>
+            {ticket.id} · {ticket.status}
+          </a>
+        ) : (
+          onCreateTicket && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onCreateTicket(); }}>
+              Create ticket
+            </button>
+          )
+        )}
+        {onMarkExpected && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); onMarkExpected(); }}>
+            Mark as expected
+          </button>
+        )}
+        <span className="vd-actions__spacer" />
         <span className="vd-eyebrow">Useful?</span>
         {[true, false].map((v) => (
           <button key={String(v)} type="button"
@@ -608,6 +659,11 @@ export function ReasonPanel({ text, scope, sql, latencyLabel, onFeedback }: Reas
   );
 }
 ```
+
+`Mark as expected` should not hide the variance — it still appears and still
+ranks, but renders as `steady` with a note saying why it was suppressed and by
+whom. Hiding it makes the dashboard lie; downgrading it makes the dashboard
+learn. See `rules.md` § Earn continued trust.
 
 ```css
 .vd-reason {
@@ -646,14 +702,36 @@ export function ReasonPanel({ text, scope, sql, latencyLabel, onFeedback }: Reas
   overflow-x: auto; font-family: var(--vd-mono); font-size: 11px;
   line-height: 1.62; color: var(--vd-ink-2);
 }
-.vd-feedback { display: flex; gap: 8px; align-items: center; }
-.vd-feedback button {
+.vd-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vd-actions__spacer { flex: 1 1 auto; }
+.vd-actions button {
   background: var(--vd-surface); border: 1px solid var(--vd-hairline);
   border-radius: 6px; font-family: var(--vd-sans); font-size: 11.5px;
   font-weight: 520; color: var(--vd-ink-2); padding: 4px 10px; cursor: pointer;
 }
-.vd-feedback button[aria-pressed="true"] {
+.vd-actions button:hover { border-color: var(--vd-hairline-2); color: var(--vd-ink); }
+.vd-actions button[aria-pressed="true"] {
   border-color: var(--vd-accent-ring); color: var(--vd-accent); background: var(--vd-accent-wash);
+}
+.vd-actions__ticket {
+  font-family: var(--vd-mono); font-size: 11px; color: var(--vd-accent);
+  text-decoration: none; border: 1px solid var(--vd-accent-ring);
+  background: var(--vd-accent-wash); border-radius: 6px; padding: 4px 10px;
+}
+
+.vd-followup { display: flex; gap: 8px; }
+.vd-followup input {
+  flex: 1 1 auto; min-width: 0;
+  background: var(--vd-surface); border: 1px solid var(--vd-hairline);
+  border-radius: 6px; padding: 6px 10px;
+  font-family: var(--vd-sans); font-size: 12.5px; color: var(--vd-ink);
+}
+.vd-followup input::placeholder { color: var(--vd-ink-3); }
+.vd-followup input:focus { border-color: var(--vd-accent-ring); }
+.vd-followup button {
+  background: var(--vd-accent); border: 0; border-radius: 6px; color: #fff;
+  font-family: var(--vd-sans); font-size: 11.5px; font-weight: 600;
+  padding: 4px 12px; cursor: pointer;
 }
 ```
 

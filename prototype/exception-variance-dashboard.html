@@ -1,0 +1,1531 @@
+<title>Exception Variance Briefing — dashboard redesign prototype</title>
+<style>
+  /* ============================================================
+     TOKENS — light is the bare :root; dark redefines tokens only,
+     under both the OS media query and the explicit theme stamp.
+     ============================================================ */
+  :root {
+    color-scheme: light;
+
+    --plane:        #f2f3f6;
+    --surface:      #fcfcfd;
+    --surface-sunk: #eceef3;
+
+    --ink:          #11131a;
+    --ink-2:        #535966;
+    --ink-3:        #858b99;
+
+    --hairline:     #e3e5ea;
+    --hairline-2:   #d4d7df;
+    --grid:         #e6e8ed;
+    --axis:         #cdd1da;
+
+    --accent:       #2a78d6;
+    --accent-sunk:  #1c5cab;
+    --accent-wash:  rgba(42,120,214,0.10);
+    --accent-ring:  rgba(42,120,214,0.28);
+
+    --now:          #2a78d6;   /* value on the later date  */
+    --then:         #a9aeba;   /* value on the earlier date */
+    --fill-1:       rgba(42,120,214,0.10);
+
+    --good:         #0ca30c;
+    --warning:      #fab219;
+    --serious:      #ec835a;
+    --critical:     #d03b3b;
+    --good-text:    #006300;
+    --bad-text:     #b3312f;
+    --rise:         #d03b3b;   /* exceptions up   — always bad */
+    --fall:         #0ca30c;   /* exceptions down — always good */
+
+    --shadow: 0 1px 2px rgba(17,19,26,0.05), 0 8px 24px -16px rgba(17,19,26,0.28);
+
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --plane:        #0b0c0f;
+      --surface:      #16181d;
+      --surface-sunk: #1e2128;
+      --ink:          #f5f6f8;
+      --ink-2:        #a6acb8;
+      --ink-3:        #767c8a;
+      --hairline:     #262932;
+      --hairline-2:   #333743;
+      --grid:         #23262e;
+      --axis:         #363a45;
+      --accent:       #3987e5;
+      --accent-sunk:  #86b6ef;
+      --accent-wash:  rgba(57,135,229,0.14);
+      --accent-ring:  rgba(57,135,229,0.40);
+      --now:          #3987e5;
+      --then:         #6b7280;
+      --fill-1:       rgba(57,135,229,0.12);
+      --good-text:    #0ca30c;
+      --bad-text:     #e26a68;
+      --rise:         #e05a5a;
+      --fall:         #0ca30c;
+      --shadow: 0 1px 2px rgba(0,0,0,0.40), 0 12px 32px -20px rgba(0,0,0,0.80);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane:        #0b0c0f;
+    --surface:      #16181d;
+    --surface-sunk: #1e2128;
+    --ink:          #f5f6f8;
+    --ink-2:        #a6acb8;
+    --ink-3:        #767c8a;
+    --hairline:     #262932;
+    --hairline-2:   #333743;
+    --grid:         #23262e;
+    --axis:         #363a45;
+    --accent:       #3987e5;
+    --accent-sunk:  #86b6ef;
+    --accent-wash:  rgba(57,135,229,0.14);
+    --accent-ring:  rgba(57,135,229,0.40);
+    --now:          #3987e5;
+    --then:         #6b7280;
+    --fill-1:       rgba(57,135,229,0.12);
+    --good-text:    #0ca30c;
+    --bad-text:     #e26a68;
+    --rise:         #e05a5a;
+    --fall:         #0ca30c;
+    --shadow: 0 1px 2px rgba(0,0,0,0.40), 0 12px 32px -20px rgba(0,0,0,0.80);
+  }
+
+  /* ============================================================ */
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--plane);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0 20px 96px;
+  }
+  .shell { max-width: 1180px; margin: 0 auto; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ---------- masthead + the two-date control ---------- */
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 26px 0 16px;
+  }
+  .wordmark { display: flex; align-items: baseline; gap: 10px; }
+  .wordmark strong { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+  .wordmark span {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .stamp { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 0 0 22px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .filter-label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .date-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 5px 10px;
+  }
+  .date-pair .arrow { color: var(--ink-3); font-size: 12px; }
+  .date-pair .leg {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .leg-key { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  input[type="date"] {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    font-weight: 560;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 2px;
+    cursor: pointer;
+    color-scheme: inherit;
+  }
+  .segmented { display: inline-flex; background: var(--surface); border: 1px solid var(--hairline); border-radius: 7px; padding: 2px; gap: 2px; }
+  .segmented button {
+    appearance: none; border: 0; background: transparent; color: var(--ink-2);
+    font-family: var(--sans); font-size: 12.5px; font-weight: 520;
+    padding: 5px 11px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .segmented button:hover { background: var(--surface-sunk); color: var(--ink); }
+  .segmented button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+
+  select.control {
+    appearance: none; background: var(--surface); color: var(--ink);
+    border: 1px solid var(--hairline); border-radius: 7px;
+    font-family: var(--sans); font-size: 12.5px; font-weight: 520;
+    padding: 7px 30px 7px 11px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, currentcolor 50%), linear-gradient(135deg, currentcolor 50%, transparent 50%);
+    background-position: right 14px center, right 9px center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+
+  /* ---------- briefing ---------- */
+  .briefing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 40px;
+    align-items: start;
+    padding: 34px 0 30px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .briefing-body { max-width: 780px; }
+  .briefing-head { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+  .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .pulse { animation: pulse 2.6s ease-in-out infinite; }
+  }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1);} 50% { opacity:.45; transform:scale(.8);} }
+  .briefing h1 {
+    font-size: 27px; line-height: 1.32; font-weight: 500;
+    letter-spacing: -0.017em; margin: 0; text-wrap: balance;
+  }
+  .briefing h1 b { font-weight: 680; }
+  .briefing-foot {
+    margin-top: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  }
+  .briefing-foot .dot { color: var(--hairline-2); }
+
+  .hero { text-align: right; border-left: 1px solid var(--hairline); padding-left: 40px; }
+  .hero-label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.10em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px;
+  }
+  .hero-value { font-size: 58px; font-weight: 600; letter-spacing: -0.035em; line-height: 1; margin-bottom: 10px; }
+  .hero-prior { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 9px; }
+
+  /* ---------- variance chip: sign + magnitude, colour = up-is-bad ---------- */
+  .delta {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+    padding: 3px 8px; border-radius: 5px; white-space: nowrap;
+  }
+  .delta.bad  { color: var(--bad-text);  background: rgba(208,59,59,0.10); }
+  .delta.good { color: var(--good-text); background: rgba(12,163,12,0.10); }
+  .delta.flat { color: var(--ink-2);     background: var(--surface-sunk); }
+  .delta .arrow { font-size: 10px; line-height: 1; }
+  .delta .pct { font-weight: 450; color: var(--ink-3); font-size: 11.5px; }
+
+  /* ---------- sections ---------- */
+  .section-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; padding: 30px 0 16px;
+  }
+  .section-head h2 { font-size: 15px; font-weight: 640; letter-spacing: -0.006em; margin: 0; }
+  .section-note { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+    gap: 12px;
+    transition: opacity 180ms ease;
+  }
+  .grid.reloading { opacity: 0.42; }
+
+  .card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 15px 16px 13px 19px;
+    text-align: left;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    overflow: hidden;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  }
+  .card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--stripe, var(--hairline-2));
+  }
+  .card:hover { border-color: var(--hairline-2); box-shadow: var(--shadow); }
+  @media (prefers-reduced-motion: no-preference) { .card:hover { transform: translateY(-1px); } }
+  .card[aria-expanded="true"] {
+    grid-column: 1 / -1; cursor: default; border-color: var(--accent-ring);
+    box-shadow: var(--shadow); transform: none; padding-bottom: 18px;
+  }
+
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  /* reserve two lines so values and dumbbells share a baseline across the row
+     whether or not the process name wraps */
+  .card-name { font-size: 12.5px; font-weight: 560; color: var(--ink-2); min-height: 38px; }
+  .card[aria-expanded="true"] .card-name { min-height: 0; }
+  .card-team {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--ink-3); margin-top: 3px;
+  }
+  .rank { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.04em; flex: none; padding-top: 1px; }
+  .card-value { font-size: 30px; font-weight: 600; letter-spacing: -0.028em; line-height: 1.06; }
+  .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 600; color: var(--ink-2);
+  }
+  .status-chip .glyph { font-size: 10px; line-height: 1; }
+  .status-chip[data-sev="critical"] .glyph { color: var(--critical); }
+  .status-chip[data-sev="serious"]  .glyph { color: var(--serious); }
+  .status-chip[data-sev="warning"]  .glyph { color: var(--warning); }
+  .status-chip[data-sev="improved"] .glyph { color: var(--good); }
+  .status-chip[data-sev="steady"]   .glyph { color: var(--ink-3); }
+
+  /* ---------- the dumbbell: two observations, one connector ---------- */
+  .dumbbell { margin-top: 4px; }
+  .db-track { position: relative; height: 16px; }
+  .db-line { position: absolute; top: 7px; height: 2px; border-radius: 1px; }
+  .db-dot {
+    position: absolute; top: 4px; width: 8px; height: 8px; border-radius: 50%;
+    transform: translateX(-50%); box-shadow: 0 0 0 2px var(--surface);
+  }
+  .db-ends {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-3);
+    margin-top: 3px;
+  }
+  .db-ends b { color: var(--ink-2); font-weight: 600; }
+
+  .preview {
+    font-size: 12.5px; line-height: 1.45; color: var(--ink-2);
+    border-top: 1px solid var(--hairline); padding-top: 10px;
+    display: flex; gap: 8px;
+  }
+  .preview .tag {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--accent); flex: none;
+    padding-top: 2px; font-weight: 600;
+  }
+  .card-cta { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 560; color: var(--accent); margin-top: auto; padding-top: 2px; }
+  .card[aria-expanded="true"] .card-cta,
+  .card[aria-expanded="true"] .preview,
+  .card[aria-expanded="true"] > .dumbbell { display: none; }
+
+  /* ---------- expanded detail ---------- */
+  .detail {
+    display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 26px; margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--hairline);
+  }
+  @media (max-width: 880px) {
+    .detail { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+    .briefing { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+    .hero { text-align: left; border-left: 0; padding-left: 0; border-top: 1px solid var(--hairline); padding-top: 22px; }
+  }
+
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .panel-title { font-size: 12.5px; font-weight: 620; }
+  .legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-key { width: 14px; height: 2px; border-radius: 1px; flex: none; }
+
+  /* by-reason dumbbell rows, shared scale */
+  .reason-rows { display: flex; flex-direction: column; gap: 3px; }
+  .rr {
+    display: grid; grid-template-columns: 152px minmax(0,1fr) 74px;
+    align-items: center; gap: 12px; padding: 4px 0; border-radius: 5px;
+  }
+  .rr:hover { background: var(--surface-sunk); }
+  .rr-name { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rr:hover .rr-name { color: var(--ink); }
+  .rr-val { font-family: var(--mono); font-size: 11px; text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .rr-val b { color: var(--ink); font-weight: 600; }
+
+  .chart-wrap { position: relative; }
+  .chart-wrap svg { display: block; width: 100%; overflow: visible; }
+
+  .tooltip {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: var(--surface); border: 1px solid var(--hairline-2);
+    border-radius: 7px; box-shadow: var(--shadow); padding: 8px 10px;
+    min-width: 136px; opacity: 0; transition: opacity 90ms ease;
+  }
+  .tooltip[data-show="true"] { opacity: 1; }
+  .tt-x { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 5px; }
+  .tt-row { display: flex; align-items: center; gap: 7px; padding: 1.5px 0; }
+  .tt-key { width: 10px; height: 2px; border-radius: 1px; flex: none; }
+  .tt-val { font-size: 12.5px; font-weight: 620; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .tt-name { font-size: 11.5px; color: var(--ink-2); }
+
+  .toggle-link {
+    appearance: none; background: transparent; border: 0; padding: 0;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; font-weight: 600; color: var(--accent); cursor: pointer;
+  }
+  .toggle-link:hover { color: var(--accent-sunk); }
+
+  .table-wrap { max-height: 210px; overflow: auto; border: 1px solid var(--hairline); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  thead th {
+    position: sticky; top: 0; background: var(--surface); text-align: right;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.07em;
+    text-transform: uppercase; font-weight: 600; color: var(--ink-3);
+    padding: 7px 12px; border-bottom: 1px solid var(--hairline);
+  }
+  thead th:first-child, tbody td:first-child { text-align: left; }
+  tbody td { text-align: right; padding: 5px 12px; font-variant-numeric: tabular-nums; color: var(--ink-2); border-bottom: 1px solid var(--grid); }
+  tbody tr:last-child td { border-bottom: 0; }
+
+  .between-block { margin-top: 24px; }
+
+  /* ---------- the reason panel ---------- */
+  .reason {
+    background: var(--surface-sunk); border-radius: 10px; padding: 16px 18px;
+    border-left: 2px solid var(--accent);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .reason-head { display: flex; align-items: center; gap: 8px; }
+  .reason-head .eyebrow { color: var(--accent); font-weight: 600; }
+  .reason-body { font-size: 14px; line-height: 1.62; color: var(--ink); max-width: 62ch; min-height: 3em; }
+  .reason-body .caret {
+    display: inline-block; width: 7px; height: 1.05em;
+    background: var(--accent); vertical-align: text-bottom; margin-left: 2px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .reason-body .caret { animation: blink 1s steps(2, start) infinite; }
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .reason-scope {
+    font-family: var(--mono); font-size: 10.5px; line-height: 1.5;
+    color: var(--ink-3); border-top: 1px solid var(--hairline-2); padding-top: 11px;
+  }
+  details.sql summary {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; font-weight: 600; color: var(--ink-2);
+    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px;
+  }
+  details.sql summary::-webkit-details-marker { display: none; }
+  details.sql summary::before { content: "▸"; font-size: 9px; color: var(--ink-3); transition: transform 120ms ease; }
+  details.sql[open] summary::before { transform: rotate(90deg); }
+  details.sql summary:hover { color: var(--ink); }
+  pre {
+    margin: 10px 0 0; padding: 12px 14px; background: var(--surface);
+    border: 1px solid var(--hairline); border-radius: 7px; overflow-x: auto;
+    font-family: var(--mono); font-size: 11px; line-height: 1.62; color: var(--ink-2); tab-size: 2;
+  }
+  .feedback { display: flex; gap: 8px; align-items: center; }
+  .feedback button {
+    appearance: none; background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 6px; font-family: var(--sans); font-size: 11.5px; font-weight: 520;
+    color: var(--ink-2); padding: 4px 10px; cursor: pointer;
+  }
+  .feedback button:hover { border-color: var(--hairline-2); color: var(--ink); }
+  .feedback button[aria-pressed="true"] { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-wash); }
+
+  .collapse {
+    appearance: none; background: transparent; border: 1px solid var(--hairline);
+    border-radius: 6px; color: var(--ink-2); font-family: var(--sans);
+    font-size: 11.5px; font-weight: 520; padding: 4px 10px; cursor: pointer;
+  }
+  .collapse:hover { border-color: var(--hairline-2); color: var(--ink); }
+
+  footer.note {
+    margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--hairline);
+    font-size: 12.5px; line-height: 1.6; color: var(--ink-3); max-width: 74ch;
+  }
+  footer.note b { color: var(--ink-2); font-weight: 600; }
+  footer.note p { margin: 0 0 8px; }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="wordmark">
+      <strong>Exception Variance</strong>
+      <span>redesign prototype</span>
+    </div>
+    <div class="stamp">refreshed 08:14 · warehouse OPS_CONTROLS</div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Dates compared by every metric below">
+    <span class="filter-label">Compare</span>
+    <div class="date-pair">
+      <span class="leg">
+        <span class="leg-key" style="background:var(--then)"></span>
+        <input type="date" id="date-a" value="2026-08-10" aria-label="Earlier date" />
+      </span>
+      <span class="arrow" aria-hidden="true">→</span>
+      <span class="leg">
+        <span class="leg-key" style="background:var(--now)"></span>
+        <input type="date" id="date-b" value="2026-08-17" aria-label="Later date" />
+      </span>
+    </div>
+    <div class="segmented" id="preset-group">
+      <button type="button" data-gap="1" aria-pressed="false">Day on day</button>
+      <button type="button" data-gap="7" aria-pressed="true">Week on week</button>
+      <button type="button" data-gap="30" aria-pressed="false">Month on month</button>
+    </div>
+    <span class="filter-label" style="margin-left:6px;">Order</span>
+    <select class="control" id="sort-select" aria-label="Card order">
+      <option value="impact">by variance</option>
+      <option value="count">by volume</option>
+      <option value="name">alphabetical</option>
+    </select>
+  </div>
+
+  <section class="briefing" aria-label="Summary">
+    <div class="briefing-body">
+      <div class="briefing-head">
+        <span class="pulse" aria-hidden="true"></span>
+        <span class="eyebrow">Cortex Analyst · variance read</span>
+      </div>
+      <h1 id="briefing-text"></h1>
+      <div class="briefing-foot">
+        <span id="briefing-window"></span>
+        <span class="dot">·</span>
+        <span id="briefing-count"></span>
+        <span class="dot">·</span>
+        <span>semantic model <span>ops_exceptions.yaml</span></span>
+      </div>
+    </div>
+    <div class="hero">
+      <div class="hero-label">Exceptions raised</div>
+      <div class="hero-value tnum" id="hero-value">—</div>
+      <div id="hero-delta"></div>
+      <div class="hero-prior" id="hero-prior"></div>
+    </div>
+  </section>
+
+  <div class="section-head">
+    <h2 id="grid-heading">Where the variance is</h2>
+    <span class="section-note" id="grid-note"></span>
+  </div>
+
+  <div class="grid" id="grid" aria-labelledby="grid-heading"></div>
+
+  <footer class="note">
+    <p><b>Reading this prototype.</b> Every process is ranked by how far its change between
+    the two selected dates sits outside its own normal day-to-day movement — so the order
+    changes with the dates, and whatever actually broke is always first. The top three are
+    explained before you ask; the rest explain on click.</p>
+    <p>Exception counts, teams and reason codes are illustrative.</p>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function hash(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ============================================================
+     The processes. `a` is the count on the earlier date, `b` on the
+     later one; `sigma` is that process's normal day-to-day swing,
+     which is what turns a raw variance into a rankable signal.
+     ============================================================ */
+  var METRICS = [
+    {
+      id: "invoice",
+      label: "Invoice matching exceptions",
+      team: "Finance Ops",
+      a: 118, b: 263, sigma: 34,
+      breakDay: 2,
+      codes: [
+        { name: "Vendor ID not found",      a: 6,  b: 121 },
+        { name: "PO line mismatch",         a: 54, b: 71 },
+        { name: "Price tolerance exceeded", a: 38, b: 44 },
+        { name: "Tax code missing",         a: 20, b: 27 }
+      ],
+      reason: "Invoice matching exceptions more than doubled, from 118 to 263. One reason code accounts for 115 of the 145 additional exceptions: \"Vendor ID not found\" went from 6 to 121. All 121 reference vendor records migrated in the master-data cutover on 12 August — those records were created with new internal IDs, but the open invoices still carry the legacy IDs, so the match fails on lookup rather than on amount. The other three reason codes moved within their normal range. 94% of the affected invoices sit with two suppliers.",
+      scope: "Grain: exception · Dimensions checked: reason code, vendor, entity, raising team · Confidence: high — one reason code explains 79% of the variance.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'INVOICE_MATCHING'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1\nORDER BY (count_b - count_a) DESC;"
+    },
+    {
+      id: "payments",
+      label: "Payment reconciliation breaks",
+      team: "Treasury",
+      a: 86, b: 141, sigma: 19,
+      breakDay: 3,
+      codes: [
+        { name: "Unmatched vendor payment", a: 21, b: 68 },
+        { name: "Bank reference missing",   a: 28, b: 33 },
+        { name: "FX rounding difference",   a: 22, b: 24 },
+        { name: "Duplicate payment flag",   a: 15, b: 16 }
+      ],
+      reason: "Payment reconciliation breaks rose from 86 to 141. This is downstream of the invoice matching failure rather than a separate problem: 47 of the 55 additional breaks are \"Unmatched vendor payment\", and each one references an invoice that is itself sitting unmatched from the 12 August vendor migration. Payments went out against the legacy vendor records and cannot be tied back. Clearing the invoice exceptions should clear most of these without any action in Treasury.",
+      scope: "Grain: exception · Dimensions checked: reason code, bank account, currency · Confidence: high — 47 of 55 linked to an open invoice exception by invoice ID.",
+      sql: "SELECT\n  e.exception_reason_code,\n  COUNT_IF(e.raised_date = :date_a) AS count_a,\n  COUNT_IF(e.raised_date = :date_b) AS count_b,\n  COUNT_IF(i.exception_id IS NOT NULL) AS linked_to_invoice_exc\nFROM ops_controls.marts.fct_exceptions e\nLEFT JOIN ops_controls.marts.fct_exceptions i\n  ON i.source_invoice_id = e.source_invoice_id\n AND i.process_name = 'INVOICE_MATCHING'\nWHERE e.process_name = 'PAYMENT_RECON'\n  AND e.raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
+    },
+    {
+      id: "access",
+      label: "Access review exceptions",
+      team: "IT Security",
+      a: 47, b: 92, sigma: 17,
+      breakDay: 4,
+      codes: [
+        { name: "Recert not actioned",       a: 8,  b: 51 },
+        { name: "Orphaned account",          a: 19, b: 22 },
+        { name: "Segregation-of-duty conflict", a: 14, b: 13 },
+        { name: "Privileged access unapproved", a: 6, b: 6 }
+      ],
+      reason: "Access review exceptions rose from 47 to 92, and this one is unrelated to the invoice and payment movements. The quarterly access recertification cycle opened on 14 August, and 43 of the 45 additional exceptions are \"Recert not actioned\" — line managers who have been issued a review but have not completed it yet. The same pattern appeared in the previous three quarterly cycles and cleared within nine days each time. The genuinely risk-bearing codes, orphaned accounts and SoD conflicts, are flat.",
+      scope: "Grain: exception · Dimensions checked: reason code, application, manager, cycle ID · Confidence: high — matched against the three prior recertification cycles.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'ACCESS_REVIEW'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1\nORDER BY 3 DESC;"
+    },
+    {
+      id: "kyc",
+      label: "KYC verification exceptions",
+      team: "Compliance",
+      a: 204, b: 168, sigma: 26,
+      breakDay: 1,
+      codes: [
+        { name: "Document expired",        a: 92, b: 61 },
+        { name: "Address mismatch",        a: 54, b: 51 },
+        { name: "Sanctions hit review",    a: 31, b: 33 },
+        { name: "Beneficial owner missing", a: 27, b: 23 }
+      ],
+      reason: "KYC exceptions fell from 204 to 168 — the only process that improved over this window. The whole reduction is in \"Document expired\", down from 92 to 61, after the automated renewal-reminder job was switched from monthly to weekly on 11 August. Customers are now re-submitting before the document lapses rather than after. Sanctions hit review is slightly up but well inside its normal range, and no exception in that code has been open longer than two days.",
+      scope: "Grain: exception · Dimensions checked: reason code, jurisdiction, customer segment · Confidence: high.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'KYC_VERIFICATION'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
+    },
+    {
+      id: "trade",
+      label: "Trade settlement breaks",
+      team: "Middle Office",
+      a: 63, b: 71, sigma: 14,
+      breakDay: 5,
+      codes: [
+        { name: "Counterparty mismatch",      a: 24, b: 29 },
+        { name: "Settlement date break",      a: 18, b: 21 },
+        { name: "Quantity break",             a: 13, b: 13 },
+        { name: "Standing instruction missing", a: 8, b: 8 }
+      ],
+      reason: "Trade settlement breaks moved from 63 to 71, which is inside the normal day-to-day range for this process. The increase sits in counterparty mismatch and settlement date breaks, both of which track settlement volume — and volume was 9% higher on the later date. Break rate per thousand settled trades is effectively unchanged at 2.1. Nothing here needs attention.",
+      scope: "Grain: exception · Dimensions checked: reason code, counterparty, asset class · Confidence: high — normalised by settlement volume.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'TRADE_SETTLEMENT'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
+    },
+    {
+      id: "vendor",
+      label: "Vendor onboarding exceptions",
+      team: "Procurement",
+      a: 29, b: 24, sigma: 8,
+      breakDay: 2,
+      codes: [
+        { name: "Bank detail unverified", a: 12, b: 9 },
+        { name: "Tax certificate missing", a: 9, b: 8 },
+        { name: "Duplicate vendor record", a: 5, b: 4 },
+        { name: "Sanctions screening open", a: 3, b: 3 }
+      ],
+      reason: "Vendor onboarding exceptions fell slightly, from 29 to 24, which is within normal movement for a process at this volume. Bank detail verification accounts for most of the reduction. Worth noting alongside the invoice matching problem: the duplicate vendor record code did not rise after the 12 August migration, so the migration created new IDs for existing vendors rather than duplicate records — consistent with the lookup-failure explanation on invoice matching.",
+      scope: "Grain: exception · Dimensions checked: reason code, vendor country, requester · Confidence: high.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'VENDOR_ONBOARDING'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
+    },
+    {
+      id: "dataquality",
+      label: "Data quality failures",
+      team: "Data Platform",
+      a: 312, b: 328, sigma: 41,
+      breakDay: 3,
+      codes: [
+        { name: "Null in required field",   a: 141, b: 148 },
+        { name: "Referential integrity",    a: 88,  b: 92 },
+        { name: "Schema drift",             a: 47,  b: 51 },
+        { name: "Duplicate record",         a: 36,  b: 37 }
+      ],
+      reason: "Data quality failures are flat at 328 against 312, well inside normal movement for the highest-volume control in the estate. All four reason codes moved proportionally, which is the signature of ordinary volume growth rather than a specific defect — total rows checked rose 4% over the same window. No single source table contributes more than 8% of the failures.",
+      scope: "Grain: check failure · Dimensions checked: reason code, source table, pipeline · Confidence: high — normalised by rows checked.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'DATA_QUALITY'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
+    },
+    {
+      id: "timesheet",
+      label: "Timesheet approval exceptions",
+      team: "HR Ops",
+      a: 156, b: 149, sigma: 22,
+      breakDay: 4,
+      codes: [
+        { name: "Missing approval",     a: 78, b: 74 },
+        { name: "Over-hours flag",      a: 41, b: 39 },
+        { name: "Cost centre invalid",  a: 22, b: 21 },
+        { name: "Late submission",      a: 15, b: 15 }
+      ],
+      reason: "Timesheet approval exceptions are effectively unchanged, 149 against 156. Both dates are Mondays, so the usual weekly approval cycle affects them equally — comparing a Monday to a mid-week day would show a much larger swing that means nothing. Missing approval remains the dominant code and is concentrated in the same four cost centres as the previous six weeks.",
+      scope: "Grain: exception · Dimensions checked: reason code, cost centre, approver · Confidence: high — like-for-like weekday comparison.",
+      sql: "SELECT\n  exception_reason_code,\n  COUNT_IF(raised_date = :date_a) AS count_a,\n  COUNT_IF(raised_date = :date_b) AS count_b\nFROM ops_controls.marts.fct_exceptions\nWHERE process_name = 'TIMESHEET_APPROVAL'\n  AND raised_date IN (:date_a, :date_b)\nGROUP BY 1;"
+    }
+  ];
+
+  var CANON_A = "2026-08-10", CANON_B = "2026-08-17";
+
+  var state = { a: CANON_A, b: CANON_B, sort: "impact", open: null, table: {} };
+
+  function isCanonical() { return state.a === CANON_A && state.b === CANON_B; }
+
+  /* ---------- dates ---------- */
+  function parseDate(s) {
+    var p = s.split("-");
+    return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  }
+  function fmtDate(s) {
+    return parseDate(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+  function fmtDateLong(s) {
+    return parseDate(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+  function dayGap() {
+    return Math.max(0, Math.round((parseDate(state.b) - parseDate(state.a)) / 86400000));
+  }
+  function toISO(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  /* ---------- derive the pair for whatever dates are selected ---------- */
+  function pair(m) {
+    if (isCanonical()) {
+      return { a: m.a, b: m.b, z: Math.abs(m.b - m.a) / m.sigma };
+    }
+    var r = rng(hash(m.id + state.a + state.b));
+    var gap = Math.max(1, dayGap());
+    var b = Math.max(0, Math.round(m.b * (0.86 + r() * 0.28)));
+    var swing = (m.b - m.a) * Math.sqrt(gap / 7) * (0.55 + r() * 0.9);
+    // processes that were quiet stay mostly quiet; the noisy ones stay noisy
+    var a = Math.max(0, Math.round(b - swing));
+    return { a: a, b: b, z: Math.abs(b - a) / m.sigma };
+  }
+
+  /* Severity is signed. A large *fall* in exceptions is just as far outside
+     normal movement as a large rise — it ranks the same, but it is good news
+     and must never be labelled a warning. */
+  function severity(z, rising) {
+    if (!rising) return z >= 1.0 ? "improved" : "steady";
+    if (z >= 2.5) return "critical";
+    if (z >= 1.7) return "serious";
+    if (z >= 1.0) return "warning";
+    return "steady";
+  }
+  var SEV_GLYPH  = { critical: "◆", serious: "▲", warning: "●", improved: "▼", steady: "—" };
+  var SEV_WORD   = { critical: "Critical", serious: "Serious", warning: "Warning", improved: "Improved", steady: "Normal" };
+  var SEV_STRIPE = {
+    critical: "var(--critical)", serious: "var(--serious)", warning: "var(--warning)",
+    improved: "var(--good)", steady: "var(--hairline-2)"
+  };
+
+  function fmtCount(v) { return Math.round(v).toLocaleString("en-GB"); }
+
+  /* Variance chip: absolute count leads, percentage is secondary —
+     on small counts a percentage alone is misleading. */
+  function deltaEl(p, opts) {
+    opts = opts || {};
+    var d = p.b - p.a;
+    var el = document.createElement("span");
+    var flat = d === 0;
+    el.className = "delta " + (flat ? "flat" : (d > 0 ? "bad" : "good"));
+
+    var arrow = document.createElement("span");
+    arrow.className = "arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = flat ? "→" : (d > 0 ? "▲" : "▼");
+    el.appendChild(arrow);
+
+    var main = document.createElement("span");
+    main.textContent = (d > 0 ? "+" : d < 0 ? "−" : "±") + fmtCount(Math.abs(d));
+    el.appendChild(main);
+
+    if (p.a > 0 && !flat) {
+      var pct = document.createElement("span");
+      pct.className = "pct";
+      pct.textContent = "(" + (d > 0 ? "+" : "−") + Math.abs(d / p.a * 100).toFixed(0) + "%)";
+      el.appendChild(pct);
+    }
+    if (opts.suffix) {
+      var sfx = document.createElement("span");
+      sfx.className = "pct";
+      sfx.textContent = opts.suffix;
+      el.appendChild(sfx);
+    }
+    return el;
+  }
+
+  /* ---------- the dumbbell ---------- */
+  function dumbbell(p) {
+    var wrap = document.createElement("div");
+    wrap.className = "dumbbell";
+
+    var max = Math.max(p.a, p.b, 1);
+    var pad = 5; // percent inset so the end dots never clip
+    var pos = function (v) { return pad + (v / max) * (100 - pad * 2); };
+    var xa = pos(p.a), xb = pos(p.b);
+    var rising = p.b > p.a;
+
+    var track = document.createElement("div");
+    track.className = "db-track";
+
+    var line = document.createElement("div");
+    line.className = "db-line";
+    line.style.left = Math.min(xa, xb) + "%";
+    line.style.width = Math.abs(xb - xa) + "%";
+    line.style.background = p.a === p.b ? "var(--hairline-2)" : (rising ? "var(--rise)" : "var(--fall)");
+    track.appendChild(line);
+
+    var dotA = document.createElement("div");
+    dotA.className = "db-dot";
+    dotA.style.left = xa + "%";
+    dotA.style.background = "var(--then)";
+    track.appendChild(dotA);
+
+    var dotB = document.createElement("div");
+    dotB.className = "db-dot";
+    dotB.style.left = xb + "%";
+    dotB.style.background = "var(--now)";
+    track.appendChild(dotB);
+
+    wrap.appendChild(track);
+
+    var ends = document.createElement("div");
+    ends.className = "db-ends";
+    var l = document.createElement("span");
+    l.appendChild(document.createTextNode(fmtDate(state.a) + " "));
+    var lb = document.createElement("b");
+    lb.textContent = fmtCount(p.a);
+    l.appendChild(lb);
+    ends.appendChild(l);
+    var rgt = document.createElement("span");
+    rgt.appendChild(document.createTextNode(fmtDate(state.b) + " "));
+    var rb = document.createElement("b");
+    rb.textContent = fmtCount(p.b);
+    rgt.appendChild(rb);
+    ends.appendChild(rgt);
+    wrap.appendChild(ends);
+
+    return wrap;
+  }
+
+  /* ---------- by-reason-code dumbbell rows, shared scale ---------- */
+  function codeChart(m, p) {
+    var block = document.createElement("div");
+
+    var scale = isCanonical() ? 1 : (p.b / Math.max(1, m.b));
+    var rows = m.codes.map(function (c) {
+      return { name: c.name, a: Math.round(c.a * scale), b: Math.round(c.b * scale) };
+    });
+    rows.sort(function (x, y) { return (y.b - y.a) - (x.b - x.a); });
+
+    var head = document.createElement("div");
+    head.className = "panel-head";
+    var title = document.createElement("div");
+    title.className = "panel-title";
+    title.textContent = "By reason code";
+    head.appendChild(title);
+
+    var legend = document.createElement("div");
+    legend.className = "legend";
+    [[fmtDate(state.a), "var(--then)"], [fmtDate(state.b), "var(--now)"]].forEach(function (pr) {
+      var it = document.createElement("span");
+      it.className = "legend-item";
+      var k = document.createElement("span");
+      k.className = "legend-dot";
+      k.style.background = pr[1];
+      it.appendChild(k);
+      var nm = document.createElement("span");
+      nm.textContent = pr[0];
+      it.appendChild(nm);
+      legend.appendChild(it);
+    });
+    head.appendChild(legend);
+    block.appendChild(head);
+
+    if (state.table[m.id]) {
+      var tw = document.createElement("div");
+      tw.className = "table-wrap";
+      var table = document.createElement("table");
+      var thead = document.createElement("thead");
+      var hr = document.createElement("tr");
+      ["Reason code", fmtDate(state.a), fmtDate(state.b), "Variance"].forEach(function (h) {
+        var th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = h;
+        hr.appendChild(th);
+      });
+      thead.appendChild(hr);
+      table.appendChild(thead);
+      var tbody = document.createElement("tbody");
+      rows.forEach(function (row) {
+        var tr = document.createElement("tr");
+        var d = row.b - row.a;
+        [row.name, fmtCount(row.a), fmtCount(row.b), (d > 0 ? "+" : d < 0 ? "−" : "±") + fmtCount(Math.abs(d))].forEach(function (c) {
+          var td = document.createElement("td");
+          td.textContent = c;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tw.appendChild(table);
+      block.appendChild(tw);
+    } else {
+      var max = 1;
+      rows.forEach(function (r) { max = Math.max(max, r.a, r.b); });
+
+      var list = document.createElement("div");
+      list.className = "reason-rows";
+
+      rows.forEach(function (row) {
+        var r = document.createElement("div");
+        r.className = "rr";
+
+        var nm = document.createElement("span");
+        nm.className = "rr-name";
+        nm.textContent = row.name;
+        r.appendChild(nm);
+
+        var track = document.createElement("div");
+        track.className = "db-track";
+        var pad = 3;
+        var pos = function (v) { return pad + (v / max) * (100 - pad * 2); };
+        var xa = pos(row.a), xb = pos(row.b);
+
+        var line = document.createElement("div");
+        line.className = "db-line";
+        line.style.left = Math.min(xa, xb) + "%";
+        line.style.width = Math.abs(xb - xa) + "%";
+        line.style.background = row.a === row.b ? "var(--hairline-2)" : (row.b > row.a ? "var(--rise)" : "var(--fall)");
+        track.appendChild(line);
+
+        [[xa, "var(--then)"], [xb, "var(--now)"]].forEach(function (pr) {
+          var d = document.createElement("div");
+          d.className = "db-dot";
+          d.style.left = pr[0] + "%";
+          d.style.background = pr[1];
+          track.appendChild(d);
+        });
+        r.appendChild(track);
+
+        var val = document.createElement("span");
+        val.className = "rr-val";
+        val.appendChild(document.createTextNode(fmtCount(row.a) + " → "));
+        var vb = document.createElement("b");
+        vb.textContent = fmtCount(row.b);
+        val.appendChild(vb);
+        r.appendChild(val);
+
+        list.appendChild(r);
+      });
+      block.appendChild(list);
+    }
+
+    var foot = document.createElement("div");
+    foot.style.marginTop = "10px";
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "toggle-link";
+    toggle.textContent = state.table[m.id] ? "Show chart" : "Show table";
+    toggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      state.table[m.id] = !state.table[m.id];
+      render();
+    });
+    foot.appendChild(toggle);
+    block.appendChild(foot);
+
+    return block;
+  }
+
+  /* ---------- what happened between the two dates ---------- */
+  var NS = "http://www.w3.org/2000/svg";
+  function svgEl(name, attrs) {
+    var el = document.createElementNS(NS, name);
+    for (var k in attrs) if (attrs.hasOwnProperty(k)) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function niceTicks(min, max, count) {
+    var span = max - min || Math.abs(max) || 1;
+    var raw = span / Math.max(1, count);
+    var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+    var norm = raw / mag;
+    var step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+    var lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+    var out = [];
+    for (var v = lo; v <= hi + step * 0.001; v += step) out.push(v);
+    return out;
+  }
+
+  function betweenChart(m, p) {
+    var gap = dayGap();
+    if (gap < 2) return null;             // nothing in between to show
+    var n = Math.min(gap + 1, 92);
+
+    var block = document.createElement("div");
+    block.className = "between-block";
+
+    var head = document.createElement("div");
+    head.className = "panel-head";
+    var title = document.createElement("div");
+    title.className = "panel-title";
+    title.textContent = "Between the two dates";
+    head.appendChild(title);
+    var note = document.createElement("span");
+    note.className = "section-note";
+    note.textContent = "daily count · " + n + " days";
+    head.appendChild(note);
+    block.appendChild(head);
+
+    // daily counts that start at a, end at b, with a step change on the causal day
+    var r = rng(hash(m.id + "between" + state.a + state.b));
+    var brk = Math.min(n - 1, Math.max(1, Math.round((m.breakDay / 7) * (n - 1))));
+    var pts = [];
+    // A causal event is a step, not a ramp — the count settles at its new level
+    // within about two days, which is what makes the break date legible.
+    var settle = Math.max(1, Math.round(n / 6));
+    for (var i = 0; i < n; i++) {
+      var base = i < brk ? p.a : p.a + (p.b - p.a) * Math.min(1, (i - brk + 1) / settle);
+      pts.push(Math.max(0, base + (r() - 0.5) * Math.max(3, p.a * 0.11)));
+    }
+    pts[0] = p.a;
+    pts[n - 1] = p.b;
+
+    var labels = [];
+    var start = parseDate(state.a);
+    for (var j = 0; j < n; j++) {
+      var d = new Date(start.getTime() + Math.round(j * (gap / (n - 1))) * 86400000);
+      labels.push(d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }));
+    }
+
+    var W = 560, H = 168, padL = 44, padR = 14, padT = 12, padB = 26;
+    // counts baseline at zero — a truncated axis exaggerates the step
+    var ticks = niceTicks(0, Math.max.apply(null, pts), 3);
+    var yMin = 0, yMax = ticks[ticks.length - 1];
+
+    var wrap = document.createElement("div");
+    wrap.className = "chart-wrap";
+    var svg = svgEl("svg", {
+      viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": m.label + ", daily count between " + fmtDate(state.a) + " and " + fmtDate(state.b)
+    });
+    svg.style.height = "auto";
+
+    var X = function (i) { return padL + (i / (n - 1)) * (W - padL - padR); };
+    var Y = function (v) { return padT + (1 - (v - yMin) / (yMax - yMin || 1)) * (H - padT - padB); };
+
+    ticks.forEach(function (t) {
+      svg.appendChild(svgEl("line", {
+        x1: padL, x2: W - padR, y1: Y(t).toFixed(1), y2: Y(t).toFixed(1),
+        stroke: "var(--grid)", "stroke-width": "1", "shape-rendering": "crispEdges"
+      }));
+      var lab = svgEl("text", {
+        x: padL - 9, y: (Y(t) + 3.5).toFixed(1), "text-anchor": "end",
+        fill: "var(--ink-3)", "font-size": "10", "font-family": "var(--mono)"
+      });
+      lab.style.fontVariantNumeric = "tabular-nums";
+      lab.textContent = fmtCount(t);
+      svg.appendChild(lab);
+    });
+    svg.appendChild(svgEl("line", {
+      x1: padL, x2: W - padR, y1: H - padB, y2: H - padB,
+      stroke: "var(--axis)", "stroke-width": "1", "shape-rendering": "crispEdges"
+    }));
+
+    var d = "", area = "M" + padL + "," + (H - padB) + " ";
+    pts.forEach(function (v, i) {
+      d += (i ? "L" : "M") + X(i).toFixed(2) + "," + Y(v).toFixed(2) + " ";
+      area += "L" + X(i).toFixed(2) + "," + Y(v).toFixed(2) + " ";
+    });
+    area += "L" + X(n - 1).toFixed(2) + "," + (H - padB) + " Z";
+    svg.appendChild(svgEl("path", { d: area, fill: "var(--fill-1)", stroke: "none" }));
+    svg.appendChild(svgEl("path", {
+      d: d, fill: "none", stroke: "var(--now)", "stroke-width": "2",
+      "stroke-linejoin": "round", "stroke-linecap": "round"
+    }));
+
+    // the two selected dates are the anchors — mark them as they appear elsewhere
+    svg.appendChild(svgEl("circle", { cx: X(0).toFixed(2), cy: Y(pts[0]).toFixed(2), r: 4, fill: "var(--then)", stroke: "var(--surface)", "stroke-width": "2" }));
+    svg.appendChild(svgEl("circle", { cx: X(n - 1).toFixed(2), cy: Y(pts[n - 1]).toFixed(2), r: 4, fill: "var(--now)", stroke: "var(--surface)", "stroke-width": "2" }));
+
+    // event rule: solid, coloured — a grid line is grey, so this cannot be mistaken for one
+    if (brk > 0 && brk < n - 1) {
+      svg.appendChild(svgEl("line", {
+        x1: X(brk).toFixed(2), x2: X(brk).toFixed(2), y1: padT, y2: H - padB,
+        stroke: "var(--rise)", "stroke-width": "1", opacity: "0.55"
+      }));
+      var evt = svgEl("text", {
+        x: (X(brk) + 5).toFixed(2), y: padT + 9, fill: "var(--ink-3)",
+        "font-size": "9.5", "font-family": "var(--mono)"
+      });
+      evt.textContent = labels[brk];
+      svg.appendChild(evt);
+    }
+
+    [0, n - 1].forEach(function (i, k) {
+      var xt = svgEl("text", {
+        x: X(i).toFixed(1), y: H - 8, "text-anchor": k === 0 ? "start" : "end",
+        fill: "var(--ink-3)", "font-size": "10", "font-family": "var(--mono)"
+      });
+      xt.textContent = labels[i];
+      svg.appendChild(xt);
+    });
+
+    var hair = svgEl("line", { x1: 0, x2: 0, y1: padT, y2: H - padB, stroke: "var(--axis)", "stroke-width": "1", opacity: "0" });
+    svg.appendChild(hair);
+    var hDot = svgEl("circle", { r: 4.5, fill: "var(--now)", stroke: "var(--surface)", "stroke-width": "2", opacity: "0" });
+    svg.appendChild(hDot);
+    var hit = svgEl("rect", { x: padL, y: 0, width: W - padL - padR, height: H, fill: "transparent", style: "cursor:crosshair" });
+    svg.appendChild(hit);
+    wrap.appendChild(svg);
+
+    var tip = document.createElement("div");
+    tip.className = "tooltip";
+    wrap.appendChild(tip);
+
+    function readout(i) {
+      while (tip.firstChild) tip.removeChild(tip.firstChild);
+      var xh = document.createElement("div");
+      xh.className = "tt-x";
+      xh.textContent = labels[i];
+      tip.appendChild(xh);
+      var row = document.createElement("div");
+      row.className = "tt-row";
+      var k = document.createElement("span");
+      k.className = "tt-key";
+      k.style.background = "var(--now)";
+      row.appendChild(k);
+      var v = document.createElement("span");
+      v.className = "tt-val";
+      v.textContent = fmtCount(pts[i]);
+      row.appendChild(v);
+      var nm = document.createElement("span");
+      nm.className = "tt-name";
+      nm.textContent = "raised";
+      row.appendChild(nm);
+      tip.appendChild(row);
+
+      hair.setAttribute("x1", X(i)); hair.setAttribute("x2", X(i)); hair.setAttribute("opacity", "1");
+      hDot.setAttribute("cx", X(i)); hDot.setAttribute("cy", Y(pts[i])); hDot.setAttribute("opacity", "1");
+
+      var box = wrap.getBoundingClientRect();
+      var px = (X(i) / W) * box.width;
+      tip.style.left = Math.min(Math.max(px - 60, 0), Math.max(0, box.width - 140)) + "px";
+      tip.style.top = Math.max(0, (Y(pts[i]) / H) * box.height - 62) + "px";
+      tip.setAttribute("data-show", "true");
+    }
+    function clear() {
+      tip.setAttribute("data-show", "false");
+      hair.setAttribute("opacity", "0");
+      hDot.setAttribute("opacity", "0");
+    }
+    hit.addEventListener("pointermove", function (e) {
+      var box = svg.getBoundingClientRect();
+      var rel = ((e.clientX - box.left) / box.width) * W;
+      readout(Math.min(n - 1, Math.max(0, Math.round(((rel - padL) / (W - padL - padR)) * (n - 1)))));
+    });
+    hit.addEventListener("pointerleave", clear);
+
+    var fi = n - 1;
+    svg.setAttribute("tabindex", "0");
+    svg.addEventListener("focus", function () { readout(fi); });
+    svg.addEventListener("blur", clear);
+    svg.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { fi = Math.min(n - 1, fi + 1); readout(fi); e.preventDefault(); }
+      if (e.key === "ArrowLeft")  { fi = Math.max(0, fi - 1);     readout(fi); e.preventDefault(); }
+    });
+
+    block.appendChild(wrap);
+    return block;
+  }
+
+  /* ---------- reason panel ---------- */
+  var streamTimer = null;
+  function reasonPanel(m) {
+    var panel = document.createElement("div");
+    panel.className = "reason";
+
+    var head = document.createElement("div");
+    head.className = "reason-head";
+    var eb = document.createElement("span");
+    eb.className = "eyebrow";
+    eb.textContent = "Cortex Analyst";
+    head.appendChild(eb);
+    var t = document.createElement("span");
+    t.className = "eyebrow";
+    t.textContent = "· 2.1s";
+    head.appendChild(t);
+    panel.appendChild(head);
+
+    var body = document.createElement("div");
+    body.className = "reason-body";
+    panel.appendChild(body);
+
+    if (reduceMotion) {
+      body.textContent = m.reason;
+    } else {
+      var words = m.reason.split(" ");
+      var i = 0;
+      var text = document.createTextNode("");
+      var caret = document.createElement("span");
+      caret.className = "caret";
+      body.appendChild(text);
+      body.appendChild(caret);
+      if (streamTimer) clearInterval(streamTimer);
+      streamTimer = setInterval(function () {
+        if (i >= words.length) {
+          clearInterval(streamTimer);
+          streamTimer = null;
+          if (caret.parentNode) caret.parentNode.removeChild(caret);
+          return;
+        }
+        text.nodeValue += (i ? " " : "") + words[i];
+        i++;
+      }, 24);
+    }
+
+    var scope = document.createElement("div");
+    scope.className = "reason-scope";
+    scope.textContent = m.scope;
+    panel.appendChild(scope);
+
+    var sql = document.createElement("details");
+    sql.className = "sql";
+    var sm = document.createElement("summary");
+    sm.textContent = "Query behind this answer";
+    sql.appendChild(sm);
+    var pre = document.createElement("pre");
+    pre.textContent = m.sql
+      .replace(/:date_a/g, "'" + state.a + "'")
+      .replace(/:date_b/g, "'" + state.b + "'");
+    sql.appendChild(pre);
+    sql.addEventListener("click", function (e) { e.stopPropagation(); });
+    panel.appendChild(sql);
+
+    var fb = document.createElement("div");
+    fb.className = "feedback";
+    var lab = document.createElement("span");
+    lab.className = "eyebrow";
+    lab.textContent = "Useful?";
+    fb.appendChild(lab);
+    ["Yes", "No"].forEach(function (txt) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = txt;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var on = b.getAttribute("aria-pressed") === "true";
+        Array.prototype.forEach.call(fb.querySelectorAll("button"), function (x) { x.setAttribute("aria-pressed", "false"); });
+        b.setAttribute("aria-pressed", on ? "false" : "true");
+      });
+      fb.appendChild(b);
+    });
+    panel.appendChild(fb);
+
+    return panel;
+  }
+
+  /* ---------- render ---------- */
+  var grid = document.getElementById("grid");
+
+  function render() {
+    var rows = METRICS.map(function (m) { return { m: m, p: pair(m) }; });
+
+    if (state.sort === "impact") rows.sort(function (x, y) { return y.p.z - x.p.z; });
+    else if (state.sort === "count") rows.sort(function (x, y) { return y.p.b - x.p.b; });
+    else rows.sort(function (x, y) { return x.m.label.localeCompare(y.m.label); });
+
+    var totalA = 0, totalB = 0;
+    rows.forEach(function (r) { totalA += r.p.a; totalB += r.p.b; });
+    var flagged = rows.filter(function (r) { return r.p.z >= 1.0; }).length;
+
+    /* briefing */
+    var h1 = document.getElementById("briefing-text");
+    while (h1.firstChild) h1.removeChild(h1.firstChild);
+    var diff = totalB - totalA;
+    var pctTxt = totalA ? " (" + (diff >= 0 ? "+" : "−") + Math.abs(diff / totalA * 100).toFixed(0) + "%)" : "";
+
+    if (isCanonical()) {
+      h1.appendChild(document.createTextNode(
+        "Exceptions are up " + fmtCount(Math.abs(diff)) + pctTxt + " between 10 and 17 August, from two unrelated causes: "));
+      var b1 = document.createElement("b");
+      b1.textContent = "the vendor master migration on 12 August broke invoice matching and cascaded into payment reconciliation";
+      h1.appendChild(b1);
+      h1.appendChild(document.createTextNode(", and "));
+      var b2 = document.createElement("b");
+      b2.textContent = "the quarterly access recertification opened on 14 August";
+      h1.appendChild(b2);
+      h1.appendChild(document.createTextNode(". KYC is the only process that improved."));
+    } else {
+      h1.appendChild(document.createTextNode(
+        "Exceptions " + (diff >= 0 ? "are up " : "are down ") + fmtCount(Math.abs(diff)) + pctTxt +
+        " between " + fmtDate(state.a) + " and " + fmtDate(state.b) + " across " + rows.length + " processes. "));
+      var b3 = document.createElement("b");
+      b3.textContent = rows[0].m.label + " moved furthest from its normal range";
+      h1.appendChild(b3);
+      h1.appendChild(document.createTextNode(", followed by " + rows[1].m.label.toLowerCase() + "."));
+    }
+
+    document.getElementById("briefing-window").textContent =
+      fmtDateLong(state.a) + " → " + fmtDateLong(state.b) + " · " + dayGap() + " days apart";
+    document.getElementById("briefing-count").textContent =
+      flagged + " of " + rows.length + " processes outside normal movement";
+
+    document.getElementById("hero-value").textContent = fmtCount(totalB);
+    var hd = document.getElementById("hero-delta");
+    while (hd.firstChild) hd.removeChild(hd.firstChild);
+    hd.appendChild(deltaEl({ a: totalA, b: totalB }));
+    document.getElementById("hero-prior").textContent =
+      fmtDate(state.a) + ": " + fmtCount(totalA) + " raised";
+
+    document.getElementById("grid-note").textContent =
+      state.sort === "impact" ? "ranked by variance vs normal movement · top 3 explained automatically"
+      : state.sort === "count" ? "ranked by volume on " + fmtDate(state.b)
+      : "alphabetical · click any process for its explanation";
+
+    /* cards */
+    while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+    rows.forEach(function (row, idx) {
+      var m = row.m, p = row.p;
+      var sev = severity(p.z, p.b > p.a);
+      var isOpen = state.open === m.id;
+
+      var card = document.createElement("div");
+      card.className = "card";
+      card.style.setProperty("--stripe", SEV_STRIPE[sev]);
+      card.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      if (!isOpen) {
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-label", "Explain the variance in " + m.label);
+      } else {
+        card.setAttribute("role", "region");
+        card.setAttribute("tabindex", "-1");
+        card.setAttribute("aria-label", m.label + " detail");
+      }
+
+      var top = document.createElement("div");
+      top.className = "card-top";
+      var names = document.createElement("div");
+      var nm = document.createElement("div");
+      nm.className = "card-name";
+      nm.textContent = m.label;
+      names.appendChild(nm);
+      var tm = document.createElement("div");
+      tm.className = "card-team";
+      tm.textContent = m.team;
+      names.appendChild(tm);
+      top.appendChild(names);
+      var rank = document.createElement("span");
+      rank.className = "rank";
+      rank.textContent = state.sort === "impact"
+        ? String(idx + 1).padStart(2, "0") + " · z " + p.z.toFixed(1)
+        : "z " + p.z.toFixed(1);
+      top.appendChild(rank);
+      card.appendChild(top);
+
+      var val = document.createElement("div");
+      val.className = "card-value";
+      val.textContent = fmtCount(p.b);
+      card.appendChild(val);
+
+      var meta = document.createElement("div");
+      meta.className = "card-meta";
+      meta.appendChild(deltaEl(p));
+      var chip = document.createElement("span");
+      chip.className = "status-chip";
+      chip.setAttribute("data-sev", sev);
+      var g = document.createElement("span");
+      g.className = "glyph";
+      g.setAttribute("aria-hidden", "true");
+      g.textContent = SEV_GLYPH[sev];
+      chip.appendChild(g);
+      var w = document.createElement("span");
+      w.textContent = SEV_WORD[sev];
+      chip.appendChild(w);
+      meta.appendChild(chip);
+      card.appendChild(meta);
+
+      if (!isOpen) {
+        card.appendChild(dumbbell(p));
+
+        if (state.sort === "impact" && idx < 3) {
+          var pv = document.createElement("div");
+          pv.className = "preview";
+          var tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = "Why";
+          pv.appendChild(tag);
+          var pt = document.createElement("span");
+          pt.textContent = m.reason.split(". ")[0] + ".";
+          pv.appendChild(pt);
+          card.appendChild(pv);
+        } else {
+          var cta = document.createElement("div");
+          cta.className = "card-cta";
+          cta.textContent = "Explain the variance →";
+          card.appendChild(cta);
+        }
+      } else {
+        var detail = document.createElement("div");
+        detail.className = "detail";
+
+        var left = document.createElement("div");
+        left.appendChild(codeChart(m, p));
+        var between = betweenChart(m, p);
+        if (between) left.appendChild(between);
+        detail.appendChild(left);
+
+        var right = document.createElement("div");
+        right.appendChild(reasonPanel(m));
+        var close = document.createElement("button");
+        close.type = "button";
+        close.className = "collapse";
+        close.textContent = "Collapse";
+        close.style.marginTop = "14px";
+        close.addEventListener("click", function (e) {
+          e.stopPropagation();
+          state.open = null;
+          render();
+        });
+        right.appendChild(close);
+        detail.appendChild(right);
+        card.appendChild(detail);
+      }
+
+      card.addEventListener("click", function (e) {
+        if (isOpen) return;
+        if (e.target.closest("button, details, a, svg[tabindex]")) return;
+        state.open = m.id;
+        render();
+      });
+      card.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && isOpen) {
+          e.stopPropagation();
+          state.open = null;
+          render();
+          var back = grid.querySelector('.card[role="button"]');
+          if (back) back.focus();
+          return;
+        }
+        if (e.target !== card) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          state.open = isOpen ? null : m.id;
+          render();
+        }
+      });
+
+      grid.appendChild(card);
+      if (isOpen) card.focus({ preventScroll: true });
+    });
+  }
+
+  /* ---------- controls ---------- */
+  function refetch(apply) {
+    grid.classList.add("reloading");
+    setTimeout(function () {
+      apply();
+      render();
+      grid.classList.remove("reloading");
+    }, reduceMotion ? 0 : 260);
+  }
+
+  var inputA = document.getElementById("date-a");
+  var inputB = document.getElementById("date-b");
+  var presets = document.getElementById("preset-group");
+
+  function syncPresets() {
+    var gap = dayGap();
+    Array.prototype.forEach.call(presets.querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", Number(b.getAttribute("data-gap")) === gap ? "true" : "false");
+    });
+  }
+
+  function onDateChange() {
+    if (!inputA.value || !inputB.value) return;
+    // keep the pair ordered so "earlier → later" always holds
+    if (parseDate(inputA.value) > parseDate(inputB.value)) {
+      var t = inputA.value;
+      inputA.value = inputB.value;
+      inputB.value = t;
+    }
+    refetch(function () {
+      state.a = inputA.value;
+      state.b = inputB.value;
+      state.open = null;
+      syncPresets();
+    });
+  }
+  inputA.addEventListener("change", onDateChange);
+  inputB.addEventListener("change", onDateChange);
+
+  presets.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-gap]");
+    if (!btn) return;
+    var gap = Number(btn.getAttribute("data-gap"));
+    var later = parseDate(state.b);
+    var earlier = new Date(later.getTime() - gap * 86400000);
+    inputA.value = toISO(earlier);
+    inputB.value = toISO(later);
+    refetch(function () {
+      state.a = inputA.value;
+      state.b = inputB.value;
+      state.open = null;
+      syncPresets();
+    });
+  });
+
+  document.getElementById("sort-select").addEventListener("change", function () {
+    state.sort = this.value;
+    render();
+  });
+
+  syncPresets();
+  render();
+})();
+</script>

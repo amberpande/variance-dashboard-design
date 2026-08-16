@@ -1,0 +1,196 @@
+/* ============================================================================
+   Variance dashboard design system — tokens
+   ----------------------------------------------------------------------------
+   Import this ONCE at the app root:
+
+       import "./styles/variance-tokens.css";
+
+   Structure matters and is load-bearing:
+
+   - The bare `:root` block defines the COMPLETE light palette. Every token has
+     a value here.
+   - `@media (prefers-color-scheme: dark)` redefines ONLY the values, guarded as
+     `:root:not([data-theme="light"])` so an explicit light choice beats a dark OS.
+   - `:root[data-theme="dark"]` redefines them again so an explicit dark choice
+     beats a light OS.
+
+   That covers all three states: explicit light, explicit dark, and the default
+   "system" setting which stamps nothing on the root element.
+
+   NEVER give a color its only definition inside a media or [data-theme] block.
+   That is the classic unreadable-dashboard bug: the token is undefined in the
+   un-stamped state and you get one theme's text on the other theme's ground.
+
+   The `--vd-` prefix prevents collisions with the host app's own variables.
+   Do not shorten it.
+   ============================================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* --- surfaces ---------------------------------------------------------- */
+  --vd-plane:        #f2f3f6;   /* page ground                                */
+  --vd-surface:      #fcfcfd;   /* cards, popovers, chart surface             */
+  --vd-surface-sunk: #eceef3;   /* recessed panels (the reason panel)         */
+
+  /* --- ink --------------------------------------------------------------- */
+  --vd-ink:          #11131a;   /* primary: values, headlines                 */
+  --vd-ink-2:        #535966;   /* secondary: labels, body                    */
+  --vd-ink-3:        #858b99;   /* muted: eyebrows, axis ticks, metadata      */
+
+  /* --- lines ------------------------------------------------------------- */
+  --vd-hairline:     #e3e5ea;   /* card borders, dividers                     */
+  --vd-hairline-2:   #d4d7df;   /* hover borders, neutral connectors          */
+  --vd-grid:         #e6e8ed;   /* chart gridlines — solid, never dashed      */
+  --vd-axis:         #cdd1da;   /* chart baseline, crosshair                  */
+
+  /* --- accent (also categorical series slot 1) --------------------------- */
+  --vd-accent:       #2a78d6;
+  --vd-accent-sunk:  #1c5cab;   /* accent on hover/active                     */
+  --vd-accent-wash:  rgba(42,120,214,0.10);
+  --vd-accent-ring:  rgba(42,120,214,0.28);
+
+  /* --- comparison pair ---------------------------------------------------
+     The two observations in a dumbbell or A/B chart. `then` is deliberately
+     neutral: it is a baseline, not a second identity, so it must not compete
+     with the value you are actually reporting.                              */
+  --vd-now:          #2a78d6;   /* later date / selected period               */
+  --vd-then:         #a9aeba;   /* earlier date / comparison period           */
+  --vd-fill:         rgba(42,120,214,0.10);  /* area wash, ~10% — never solid */
+
+  /* --- status (fixed; never themed, never reused as a series color) ------ */
+  --vd-good:         #0ca30c;
+  --vd-warning:      #fab219;
+  --vd-serious:      #ec835a;
+  --vd-critical:     #d03b3b;
+
+  /* --- direction ---------------------------------------------------------
+     Semantic, not literal: `rise`/`fall` mean adverse/favourable. For a metric
+     where up is GOOD (revenue, uptime), swap these at the call site — do not
+     redefine the tokens.                                                    */
+  --vd-rise:         #d03b3b;   /* movement in the bad direction              */
+  --vd-fall:         #0ca30c;   /* movement in the good direction             */
+
+  /* --- delta text (contrast-checked against --vd-surface) ---------------- */
+  --vd-good-text:    #006300;
+  --vd-bad-text:     #b3312f;
+
+  /* --- elevation --------------------------------------------------------- */
+  --vd-shadow: 0 1px 2px rgba(17,19,26,0.05), 0 8px 24px -16px rgba(17,19,26,0.28);
+
+  /* --- type --------------------------------------------------------------
+     Two roles, no webfonts — a CSP that blocks font CDNs would otherwise give
+     you a silent fallback. `sans` carries everything read as data, INCLUDING
+     the hero figure. `mono` carries eyebrows, ranks, ticks, timestamps, SQL. */
+  --vd-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --vd-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+
+  /* --- radii & spacing --------------------------------------------------- */
+  --vd-radius-card:  10px;
+  --vd-radius-ctl:   7px;
+  --vd-radius-chip:  5px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --vd-plane:        #0b0c0f;
+    --vd-surface:      #16181d;
+    --vd-surface-sunk: #1e2128;
+
+    --vd-ink:          #f5f6f8;
+    --vd-ink-2:        #a6acb8;
+    --vd-ink-3:        #767c8a;
+
+    --vd-hairline:     #262932;
+    --vd-hairline-2:   #333743;
+    --vd-grid:         #23262e;
+    --vd-axis:         #363a45;
+
+    --vd-accent:       #3987e5;
+    --vd-accent-sunk:  #86b6ef;
+    --vd-accent-wash:  rgba(57,135,229,0.14);
+    --vd-accent-ring:  rgba(57,135,229,0.40);
+
+    --vd-now:          #3987e5;
+    --vd-then:         #6b7280;
+    --vd-fill:         rgba(57,135,229,0.12);
+
+    /* status steps are mode-invariant — all four clear 3:1 on the dark
+       surface and stay distinct from the accent */
+    --vd-rise:         #e05a5a;
+    --vd-fall:         #0ca30c;
+
+    --vd-good-text:    #0ca30c;
+    --vd-bad-text:     #e26a68;
+
+    --vd-shadow: 0 1px 2px rgba(0,0,0,0.40), 0 12px 32px -20px rgba(0,0,0,0.80);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --vd-plane:        #0b0c0f;
+  --vd-surface:      #16181d;
+  --vd-surface-sunk: #1e2128;
+
+  --vd-ink:          #f5f6f8;
+  --vd-ink-2:        #a6acb8;
+  --vd-ink-3:        #767c8a;
+
+  --vd-hairline:     #262932;
+  --vd-hairline-2:   #333743;
+  --vd-grid:         #23262e;
+  --vd-axis:         #363a45;
+
+  --vd-accent:       #3987e5;
+  --vd-accent-sunk:  #86b6ef;
+  --vd-accent-wash:  rgba(57,135,229,0.14);
+  --vd-accent-ring:  rgba(57,135,229,0.40);
+
+  --vd-now:          #3987e5;
+  --vd-then:         #6b7280;
+  --vd-fill:         rgba(57,135,229,0.12);
+
+  --vd-rise:         #e05a5a;
+  --vd-fall:         #0ca30c;
+
+  --vd-good-text:    #0ca30c;
+  --vd-bad-text:     #e26a68;
+
+  --vd-shadow: 0 1px 2px rgba(0,0,0,0.40), 0 12px 32px -20px rgba(0,0,0,0.80);
+}
+
+/* ============================================================================
+   Base — apply to the dashboard's root element, not to <body>, so the system
+   can live inside an app that already owns global styles.
+   ============================================================================ */
+
+.vd-root {
+  background: var(--vd-plane);
+  color: var(--vd-ink);
+  font-family: var(--vd-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.vd-root :focus-visible {
+  outline: 2px solid var(--vd-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Digits align in columns — tables, axis ticks, dumbbell end labels. Never on
+   a large standalone number: equal-width digits make `121` look loose. */
+.vd-tnum { font-variant-numeric: tabular-nums; }
+
+.vd-eyebrow {
+  font-family: var(--vd-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--vd-ink-3);
+}
